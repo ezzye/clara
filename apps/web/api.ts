@@ -68,7 +68,33 @@ export type Meeting = {
     minutes?: number;
   };
 };
+export type InventoryItem = {
+  id: string;
+  kind: "task" | "project" | "meeting";
+  title: string;
+  context: string;
+  priority: number;
+  status: string;
+  source: string;
+  detail: string;
+  date: string;
+  coverage?: string;
+  linkedTasks?: number;
+  start?: number;
+  minutes?: number;
+  confirmed?: boolean;
+};
 export type State = {
+  inventory?: InventoryItem[];
+  inventorySources?: {
+    id: string;
+    label: string;
+    context: string;
+    status: string;
+    count: number;
+    note: string;
+    checkedAt?: string;
+  }[];
   revision: number;
   suggestions?: Suggestion[];
   backlog?: BacklogItem[];

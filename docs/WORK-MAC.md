@@ -43,3 +43,17 @@ The current extension uses manual preview and submission. It does not continuous
 - Public GitHub: reusable code and generic instructions only.
 
 An initial acceptance check should show the same captured source and accepted task in Clara on both Macs. Only after that should automatic browser-specific collection be designed and tested against the actual workplace interfaces.
+
+## Full project inventory on an already paired Mac
+
+Update the existing checkout and use its existing private configuration and Keychain entry. Do not pair again, copy keys, or install a scheduler when workplace controls require manual operation. Keep the existing **Run Clara.command** workflow.
+
+Set `codexDb` in that machine's private configuration to its verified local Codex SQLite database. Enable inventory with the existing Python environment:
+
+```sh
+python -m clara_agent.inventory --config /private/path/work-device.json --context work --cowork-sessions "$HOME/Library/Application Support/Claude/local-agent-mode-sessions"
+```
+
+Then run the existing manual companion once. This enumerates all working directories in the local Codex task database, without the activity collector's seven-day limit, and the local Cowork session index when available. Only metadata is uploaded. Archived sessions remain completion-unknown. An absent source reports unavailable. Later snapshots preserve the owner's Work/Home classification, priority and completion review.
+
+This is a project/session inventory, not an authenticated Jira or Outlook connector. Collect the actual cloud Jira board and next week's Outlook occurrences separately through approved Chrome access. Record scope, pagination completion, observed time and exceptions; do not claim full board/calendar coverage after a sample capture. Keep ticket identity scoped to the Jira site, distinguish assigned tickets from the rest of the board, and require real dates and timezones for meetings.

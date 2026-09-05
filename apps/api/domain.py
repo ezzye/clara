@@ -203,6 +203,8 @@ def evidence_from(data,device):
 def public_state(state):
     s=copy.deepcopy(state)
     s['backlog']=explain(state)
+    from .inventory import rows
+    s['inventory']=rows(s)
     from .meetings import preparation
     for event in s['events']:event['preparation']=preparation(event,state['plan'])
     from .suggestions import source_context

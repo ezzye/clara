@@ -9,8 +9,8 @@ def commit(state, data):
     if not all([outcome, next_step, finish]): raise ValueError('Choose a useful outcome, next step and finish line')
     task = next((t for t in state['tasks'] if t['id'] == project.get('activeTaskId') and t['status'] != 'done'), None)
     values = {'title': text(data.get('title', 'Next milestone: '+project['title']),180),
-              'category':'project','projectId':project['id'],'minutes':data.get('minutes',25),
-              'priority':3,'nextStep':next_step,'doneWhen':finish,'source':project.get('source','Project review')}
+              'category':'project','context':project.get('context','personal'),'projectId':project['id'],'minutes':data.get('minutes',25),
+              'priority':project.get('priority',3),'nextStep':next_step,'doneWhen':finish,'source':project.get('source','Project review')}
     if task:
         values['id']=task['id'];replacement=task_from(values)
         replacement['createdAt']=task.get('createdAt',replacement['createdAt'])

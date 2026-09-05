@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from .domain import *
 from .storage import Store, Conflict
 from . import suggestions
-from . import projects, meetings
+from . import projects, meetings, inventory
 from .backlog import record_pass
 from .rhythm import validate_rhythm
 from .plan_drafts import apply_draft
@@ -21,12 +21,19 @@ def action(store,body):
     elif name=='taskStatus':
         if data.get('status') not in ['open','done','parked']:raise ValueError('Unknown status')
         t=next(t for t in state['tasks'] if t['id']==data['id']);t['status']=data['status']
+        if t['status']=='parked':
+            state['plan']=[b for b in state['plan'] if b.get('taskId')!=t['id'] or b['status'] in ('active','done','skipped')]
         if t['status']=='done':
             for b in state['plan']:
                 if b.get('taskId')==t['id'] and b['status']=='planned':b['status']='skipped'
     elif name=='taskPriority':
         t=next(t for t in state['tasks'] if t['id']==data.get('id'))
         t['priority']=integer(data.get('priority'),1,3)
+    elif name=='inventorySnapshot':inventory.merge_snapshot(state,data)
+    elif name=='reviewProject':inventory.review_project(state,data)
+    elif name=='taskContext':
+        t=next(t for t in state['tasks'] if t['id']==data.get('id'))
+        inventory.move_task(state,t,data.get('context'))
     elif name=='addEvent':
         event=event_from(data);state['events'].append(event);meetings.protect(state,event)
     elif name=='saveMeeting':meetings.review(state,data)
@@ -114,6 +121,9 @@ def ingest(store,token,body):
         live_ids={e['id'] for e in state['evidence']}
         state['suggestions']=[s for s in state.get('suggestions',[]) if s['evidenceId'] in live_ids]
         state['draftedEvidence']={k:v for k,v in state.get('draftedEvidence',{}).items() if k in live_ids}
+        snapshots=body.get('inventory',[])
+        if not isinstance(snapshots,list) or len(snapshots)>10:raise ValueError('Too many source snapshots')
+        for snapshot in snapshots:inventory.merge_snapshot(state,snapshot,device['id'])
         device['lastSeen']=now()
         try:store.write(state,old);return {'accepted':accepted,'paused':False}
         except Conflict:
@@ -150,7 +160,7 @@ def device_planning(store,token,body,method,path):
     day=datetime.now(TZ).date().isoformat()
     spent=daily.get('count',0) if daily.get('date')==day else 0
     recent=recent or spent>=8
-    tasks=[{k:t[k] for k in ['id','title','nextStep','doneWhen','priority','due']} for t in state['tasks'] if t['status']=='open'][:30]
+    tasks=[{**{k:t[k] for k in ['id','title','nextStep','doneWhen','priority','due']},'context':t.get('context','personal')} for t in state['tasks'] if t['status']=='open']
     if path=='/api/device-context' and method=='GET':
         return {'revision':state['revision'],'tasks':tasks,'energy':state['settings']['energy'],'canPropose':not bool(recent)}
     if path!='/api/proposal' or method!='POST':raise ValueError('Invalid planner request')

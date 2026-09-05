@@ -4,6 +4,7 @@ from pathlib import Path
 from datetime import datetime
 from apps.api.domain import TZ
 from .collectors import collect
+from .inventory import snapshots
 from .brains import codex_rank, codex_drafts
 
 def reserve_attempt(config_path,kind):
@@ -35,7 +36,7 @@ def cycle(config_path):
     # Check revocation and pause before inspecting any local source.
     heartbeat=request(endpoint+'/api/ingest',token,{'evidence':[]})
     if heartbeat.get('paused'):return {'paused':True}
-    result=request(endpoint+'/api/ingest',token,{'evidence':collect(config)})
+    result=request(endpoint+'/api/ingest',token,{'evidence':collect(config),'inventory':snapshots(config)})
     if config.get('planner'):
         # Drafts get only eligible message captures, never full activity history.
         try:

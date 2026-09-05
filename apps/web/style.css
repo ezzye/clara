@@ -1539,3 +1539,25 @@ label,
   font-weight: 600;
   padding: 16px 0;
 }
+
+.inventory-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: end;
+  margin: 1rem 0;
+}
+.inventory-controls label {
+  flex: 1;
+  min-width: 150px;
+}
+.inventory-source {
+  border-top: 1px solid var(--line, #d9e0e5);
+  padding: 1rem 0;
+}
+.inventory-source .tag {
+  margin-left: 1rem;
+}
+.inventory-source p {
+  margin: 0.5rem 0;
+}
