@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><title>Clara</title
+  ><style>
+    body {
+      font: 14px system-ui;
+      width: 340px;
+      padding: 18px;
+      color: #19313d;
+    }
+    button {
+      padding: 9px;
+      margin: 5px 4px 5px 0;
+      border-radius: 5px;
+      border: 1px solid #cbdcd2;
+      background: #edf5f0;
+    }
+    textarea {
+      width: 100%;
+      min-height: 220px;
+      box-sizing: border-box;
+    }
+    p {
+      line-height: 1.5;
+    }
+  </style>
+  <h2>A useful brief for Clara</h2>
+  <p>
+    Preview and edit what will be sent. A page extract is evidence, never proof
+    that a task is finished.
+  </p>
+  <button id="preview">Read this work page</button
+  ><button id="settings">Connections</button
+  ><textarea
+    id="brief"
+    aria-label="Private evidence preview"
+    maxlength="800"
+    placeholder="Nothing has been read or sent."
+  ></textarea
+  ><button id="send" disabled>Send this brief</button>
+  <p id="status" role="status"></p>
+  <script src="popup.js"></script>
+</html>

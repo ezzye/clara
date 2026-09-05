@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><title>Clara · Work connection</title
+  ><style>
+    body {
+      font: 16px system-ui;
+      max-width: 620px;
+      padding: 40px;
+      margin: auto;
+      color: #19313d;
+    }
+    label {
+      display: block;
+      margin: 20px 0;
+    }
+    input,
+    textarea {
+      display: block;
+      padding: 10px;
+      width: 100%;
+      box-sizing: border-box;
+      margin-top: 8px;
+    }
+    button {
+      padding: 12px;
+      background: #286e55;
+      color: white;
+      border: 0;
+      border-radius: 6px;
+    }
+    small {
+      display: block;
+      color: #667;
+    }
+    p {
+      line-height: 1.6;
+    }
+  </style>
+  <h1>Connect work pages to Clara</h1>
+  <p>
+    This extension sends a short extract of a page you choose to your own Clara
+    deployment. It does not run in the background, follow links, or read
+    password fields. Verify your workplace permits this before selecting
+    confidential material.
+  </p>
+  <label
+    >Private Clara HTTPS address<input
+      id="endpoint"
+      type="url"
+      placeholder="https://your-app.execute-api.eu-west-1.amazonaws.com" /></label
+  ><label
+    >Upload-only laptop pairing key<input
+      id="token"
+      type="password"
+      autocomplete="off" /></label
+  ><label
+    >Allowed work origins (one per line)<textarea
+      id="origins"
+      rows="5"
+      placeholder="https://your-company.atlassian.net"
+    ></textarea></label
+  ><small
+    >The revocable upload key is stored in this Chrome profile’s local extension
+    storage. Use a dedicated key with no planning permission.</small
+  ><button id="save">Save these connections</button>
+  <p id="status" role="status"></p>
+  <script src="options.js"></script>
+</html>

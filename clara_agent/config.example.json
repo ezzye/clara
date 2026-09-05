@@ -1,0 +1,9 @@
+{
+  "endpoint": "https://YOUR_PRIVATE_APP.execute-api.eu-west-1.amazonaws.com",
+  "deviceId": "PAIR_IN_CLARA_FIRST",
+  "codexDb": "",
+  "projectRoots": [],
+  "downloadsFolder": "",
+  "coworkExportFolders": [],
+  "planner": false
+}
