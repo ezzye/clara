@@ -37,3 +37,11 @@ Quiet background checks also look seven days ahead for appointments, even when t
 Meeting prep separates checked appointment details, briefing notes and the owner's readiness decision. Editing notes alone confirms neither attendance nor readiness. An appointment edit releases its unstarted old reservations; removal affects Clara only. Completed and active activity history remains intact. Restoring an appointment protects it again. External calendars, recurrence changes and cancellations are not automatically reconciled yet.
 
 The local development copy and the shared private AWS plan are different stores. A local notice links to the shared deployment when that address is present in the private deployment record. Signing into the shared website on a laptop does not install a collector.
+
+## Work and personal time
+
+A configured weekly rhythm distinguishes weekday employment work (Monday to Friday) from personal evenings and weekend project time. Tasks carry a work/personal context; meeting preparation and development goals default to work. Events remain fixed calendar commitments and are excluded from task-progress totals. An agent draft can use personal time for work only when that individual task has an explicit personal-time exception.
+
+The agent can supply a concrete seven-day draft of existing tasks, times and reasons. The server validates every task ID, duration, work/personal boundary, task estimate and protected calendar conflict before saving any draft. Drafts remain editable and survive quiet rule-based refreshes. They are labelled as drafts, with assumptions and source gaps; they do not imply tasks are done or unknown meetings exist. The current interactive Codex agent can create these drafts; the background companion still proposes task ranking and message drafts, not full autonomous weekly schedules.
+
+Replacement appointment records can be marked superseded with a link to the retained record and a reason. Date uncertainty keeps the single retained appointment out of the calendar until resolved. Do not assume that similar hospital titles or later appointment dates alone prove supersession: use the replacement letter or explicit owner correction.

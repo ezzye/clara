@@ -1,3 +1,4 @@
+import { WeeklyRhythm } from "./WeeklyRhythm";
 import { SourceContext } from "./SourceContext";
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -211,7 +212,18 @@ function App() {
     blocks.find(
       (b) =>
         !["done", "skipped"].includes(b.status) &&
-        b.kind !== "break" &&
+        (b.date > today() ||
+          b.start + b.minutes >
+            Number(
+              new Intl.DateTimeFormat("en-GB", {
+                timeZone: "Europe/London",
+                hour: "2-digit",
+                hour12: false,
+              }).format(new Date()),
+            ) *
+              60 +
+              new Date().getMinutes()) &&
+        !["break", "event"].includes(b.kind) &&
         b.kind !== "event",
     );
   const nextTask = state.tasks.find((t) => t.id === next?.taskId);
@@ -234,9 +246,11 @@ function App() {
         e.summary,
       ),
   );
-  const done = blocks.filter((b) => b.status === "done" && b.kind !== "break");
+  const done = blocks.filter(
+    (b) => b.status === "done" && !["break", "event"].includes(b.kind),
+  );
   const totalMinutes = blocks
-    .filter((b) => b.kind !== "break")
+    .filter((b) => !["break", "event"].includes(b.kind))
     .reduce((a, b) => a + b.minutes, 0);
   const makePlan = (days = 1) => act("plan", { date, days });
   const showTask = (task?: Task) => {
@@ -268,10 +282,10 @@ function App() {
         </div>
         <small>
           {b.kind === "event"
-            ? "Appointment · attendance unconfirmed"
+            ? "Fixed event · not a task"
             : b.status === "done"
               ? "Session complete"
-              : b.reason}
+              : (b.draft ? "Draft · " : "") + b.reason}
         </small>
       </div>
       <button
@@ -447,6 +461,30 @@ function App() {
               </button>
             )}
           </div>
+          {["Now", "Plan"].includes(view) && state.planner.draftBrief && (
+            <section className="card">
+              <p className="eyebrow">YOUR FIRST DRAFT · EDITABLE</p>
+              <p>{state.planner.draftBrief}</p>
+              <details>
+                <summary>Assumptions & things still to check</summary>
+                <ul>
+                  {state.planner.draftAssumptions?.map((a, i) => (
+                    <li key={i}>{a}</li>
+                  ))}
+                </ul>
+              </details>
+              <button
+                className="small-button"
+                onClick={() => {
+                  setView("Plan");
+                  setHorizon("Week");
+                  setDate(addDays(today(), 1));
+                }}
+              >
+                See the draft week
+              </button>
+            </section>
+          )}
           {view === "Now" && (
             <>
               <div className="day-strip">
@@ -594,7 +632,13 @@ function App() {
                   <h2>Prepare, then participate.</h2>
                   {state.events
                     .filter(
-                      (e) => e.date >= today() && e.status !== "cancelled",
+                      (e) =>
+                        e.date >= today() &&
+                        ![
+                          "cancelled",
+                          "superseded",
+                          "needs_confirmation",
+                        ].includes(e.status || ""),
                     )
                     .sort(
                       (a, b) =>
@@ -686,6 +730,13 @@ function App() {
                 <div className="card">
                   <div className="section-heading">
                     <h2>{niceDate(date)}</h2>
+                    {state.settings.inBedBy && (
+                      <small>
+                        Screen work ends{" "}
+                        {time(state.settings.screenWorkEnd || 1320)} · in bed by{" "}
+                        {time(state.settings.inBedBy)}
+                      </small>
+                    )}
                     <button
                       className="small-button"
                       onClick={() => setModal("event")}
@@ -735,7 +786,11 @@ function App() {
                           )}
                         </h3>
                         {state.plan
-                          .filter((b) => b.date === d && b.kind !== "break")
+                          .filter(
+                            (b) =>
+                              b.date === d &&
+                              !["break", "event"].includes(b.kind),
+                          )
                           .map((b) => (
                             <button
                               className={"week-block " + b.kind}
@@ -820,7 +875,11 @@ function App() {
                             {
                               state.events.filter(
                                 (e) =>
-                                  e.status !== "cancelled" &&
+                                  ![
+                                    "cancelled",
+                                    "superseded",
+                                    "needs_confirmation",
+                                  ].includes(e.status || "") &&
                                   e.date.startsWith(d.slice(0, 7)),
                               ).length
                             }{" "}
@@ -1059,7 +1118,12 @@ function App() {
                       {done.length}
                       <small>
                         {" "}
-                        of {blocks.filter((b) => b.kind !== "break").length}
+                        of{" "}
+                        {
+                          blocks.filter(
+                            (b) => !["break", "event"].includes(b.kind),
+                          ).length
+                        }
                       </small>
                     </strong>
                   </div>
@@ -1090,7 +1154,7 @@ function App() {
                       </thead>
                       <tbody>
                         {blocks
-                          .filter((b) => b.kind !== "break")
+                          .filter((b) => !["break", "event"].includes(b.kind))
                           .map((b) => (
                             <tr key={b.id}>
                               <td>{b.title}</td>
@@ -1338,6 +1402,7 @@ function App() {
           {view === "Preferences" && (
             <>
               <div className="settings-grid">
+                <WeeklyRhythm state={state} act={act} busy={busy} />
                 <form
                   className="card"
                   onSubmit={(e) =>
@@ -1373,7 +1438,7 @@ function App() {
                   </label>
                   <div className="form-row">
                     <label>
-                      Start of day
+                      Workday start
                       <input
                         name="start"
                         type="time"
@@ -1381,7 +1446,7 @@ function App() {
                       />
                     </label>
                     <label>
-                      End of day
+                      Workday end
                       <input
                         name="end"
                         type="time"
@@ -1518,6 +1583,23 @@ function App() {
                     />
                   </label>
                 </div>
+                <label>
+                  Use time for
+                  <select
+                    name="context"
+                    defaultValue={
+                      editing?.context ||
+                      (["prep", "development"].includes(editing?.category || "")
+                        ? "work"
+                        : "personal")
+                    }
+                  >
+                    <option value="work">Employment work · weekdays 9–5</option>
+                    <option value="personal">
+                      My projects & personal life
+                    </option>
+                  </select>
+                </label>
                 <SourceContext context={editing?.sourceContext} />
                 <label>
                   The first small step
@@ -1815,7 +1897,13 @@ function MonthGrid({
         >
           <strong>{Number(d.slice(-2))}</strong>
           {state.events
-            .filter((e) => e.date === d && e.status !== "cancelled")
+            .filter(
+              (e) =>
+                e.date === d &&
+                !["cancelled", "superseded", "needs_confirmation"].includes(
+                  e.status || "",
+                ),
+            )
             .slice(0, 2)
             .map((e) => (
               <span key={e.id}>

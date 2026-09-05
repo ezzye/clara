@@ -21,7 +21,10 @@ export function MeetingPrep({
   const [filter, setFilter] = useState("upcoming");
   const events = state.events
     .filter(
-      (e) => filter === "all" || (e.date >= today && e.status !== "cancelled"),
+      (e) =>
+        filter === "all" ||
+        (e.date >= today &&
+          !["cancelled", "superseded"].includes(e.status || "")),
     )
     .sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start);
   return (
@@ -84,7 +87,8 @@ function MeetingCard({
     setPrepared(e.prepared || false);
   }, [e.notes, e.confirmed, e.prepared]);
   const prep = e.preparation;
-  const cancelled = e.status === "cancelled";
+  const cancelled = e.status === "cancelled" || e.status === "superseded";
+  const unresolved = e.status === "needs_confirmation";
   const before = new Date(e.date + "T12:00:00Z");
   before.setUTCDate(before.getUTCDate() - 6);
   const planStart = [today, before.toISOString().slice(0, 10)].sort().at(-1)!;
@@ -98,7 +102,9 @@ function MeetingCard({
   return (
     <section className="card meeting-card">
       <span className="tag">
-        {e.date} · {time(e.start)} · {e.minutes} min · London time
+        {unresolved
+          ? "Date awaiting confirmation"
+          : `${e.date} · ${time(e.start)} · ${e.minutes} min · London time`}
       </span>
       <h2>{e.title}</h2>
       <SourceContext context={e.sourceContext} />
@@ -111,6 +117,8 @@ function MeetingCard({
         <strong>
           {
             {
+              "needs-confirmation": "Check replacement letter",
+              superseded: "Superseded",
               review: "Review readiness",
               ready: "Ready",
               reserved: "Time reserved",
@@ -131,7 +139,7 @@ function MeetingCard({
           </p>
         )}
       </div>
-      {!cancelled && e.date >= today && (
+      {!cancelled && !unresolved && e.date >= today && (
         <button
           className="small-button"
           disabled={busy || paused}

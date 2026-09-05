@@ -9,6 +9,7 @@ export type Task = {
   id: string;
   title: string;
   category: string;
+  context?: "work" | "personal";
   minutes: number;
   priority: number;
   nextStep: string;
@@ -29,6 +30,8 @@ export type Block = {
   kind: string;
   locked: boolean;
   status: string;
+  draft?: boolean;
+  context?: "work" | "personal";
   taskId?: string;
   eventId?: string;
   reason: string;
@@ -47,9 +50,11 @@ export type Meeting = {
   sourceContext?: SourceContext | null;
   confirmed: boolean;
   prepared?: boolean;
-  status?: "scheduled" | "cancelled";
+  status?: "scheduled" | "cancelled" | "superseded" | "needs_confirmation";
   preparation?: {
     status:
+      | "needs-confirmation"
+      | "superseded"
       | "review"
       | "ready"
       | "reserved"
@@ -121,8 +126,21 @@ export type State = {
     dayEnd: number;
     bufferMinutes: number;
     maxPriorities: number;
+    screenWorkEnd?: number;
+    inBedBy?: number;
+    weeklyRhythm?: {
+      workStart: number;
+      workEnd: number;
+      eveningStart: number;
+      eveningEnd: number;
+      weekendStart: number;
+      weekendEnd: number;
+      eveningDays: number[];
+    };
   };
   planner: {
+    draftBrief?: string;
+    draftAssumptions?: string[];
     mode: string;
     message: string;
     lastRun: string | null;

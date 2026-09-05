@@ -1,10 +1,11 @@
 """Owner-reviewed appointments and preparation, separate from calendar attendance."""
 from datetime import datetime
+from .rhythm import active_event
 from .domain import event_from, text, now, TZ, uid, overlaps
 
 
 def protect(state, event):
-    if event.get('status') == 'cancelled':
+    if not active_event(event):
         return
     if any(b.get('eventId') == event['id'] and b['kind'] == 'event'
            and b['date'] == event['date'] and b['start'] == event['start']
@@ -66,6 +67,8 @@ def review(state, data):
 def preparation(event, plan, current=None):
     current = current or datetime.now(TZ)
     point = (current.date().isoformat(), current.hour * 60 + current.minute)
+    if event.get('status') == 'superseded':return {'status':'superseded','message':'Replaced by a newer appointment record.'}
+    if event.get('status') == 'needs_confirmation':return {'status':'needs-confirmation','message':'One appointment, conflicting dates. Confirm the latest replacement letter before scheduling.'}
     if event.get('status') == 'cancelled':
         return {'status': 'cancelled', 'message': 'Removed from Clara. The original calendar has not been changed.'}
     if (event['date'], event['start'] + event['minutes']) <= point:
@@ -85,3 +88,17 @@ def preparation(event, plan, current=None):
     if any(b.get('eventId') == event['id'] and b['kind'] == 'prep' and b['status'] == 'done' for b in plan):
         return {'status': 'review', 'message': 'A preparation session is complete. Check your notes and mark ready, or add another preparation task if needed.'}
     return {'status': 'needs-time', 'message': 'Preparation needs time. Plan the days before this appointment to find a slot.'}
+
+
+def supersede(state, data):
+    keep=next(e for e in state['events'] if e['id']==data.get('keepId'))
+    ids=data.get('obsoleteIds',[])
+    if not isinstance(ids,list) or not 1<=len(ids)<=10 or keep['id'] in ids:raise ValueError('Choose the appointment being replaced')
+    obsolete=[next(e for e in state['events'] if e['id']==ident) for ident in ids]
+    reason=text(data.get('reason',''),500)
+    for e in obsolete:
+        e.update(status='superseded',supersededBy=keep['id'],reconciliationReason=reason)
+    keep.update(status='needs_confirmation' if data.get('uncertain') else 'scheduled',reconciliationReason=reason)
+    affected=set(ids+[keep['id']])
+    state['plan']=[b for b in state['plan'] if b.get('eventId') not in affected or b['status'] in ('active','done')]
+    protect(state,keep)

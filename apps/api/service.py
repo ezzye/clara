@@ -5,6 +5,8 @@ from .storage import Store, Conflict
 from . import suggestions
 from . import projects, meetings
 from .backlog import record_pass
+from .rhythm import validate_rhythm
+from .plan_drafts import apply_draft
 
 def digest(token): return hashlib.sha256(token.encode()).hexdigest()
 
@@ -30,21 +32,30 @@ def action(store,body):
     elif name=='saveMeeting':meetings.review(state,data)
     elif name=='editEvent':meetings.edit(state,data)
     elif name=='eventStatus':meetings.set_status(state,data)
+    elif name=='supersedeEvents':meetings.supersede(state,data)
     elif name=='addGoal':state['goals'].append(goal_from(data))
     elif name=='goalStatus':
         g=next(g for g in state['goals'] if g['id']==data['id']);g['status']='done' if data.get('done') else 'open'
     elif name=='settings':
         s=state['settings']
         if 'paused' in data:s['paused']=bool(data['paused'])
+        if 'weeklyRhythm' in data:
+            s['weeklyRhythm']=validate_rhythm(data['weeklyRhythm']);s['dayStart']=s['weeklyRhythm']['workStart'];s['dayEnd']=s['weeklyRhythm']['workEnd']
         if 'suggestFromMessages' in data:
             if not isinstance(data['suggestFromMessages'],bool):raise ValueError('Choose on or off')
             s['suggestFromMessages']=data['suggestFromMessages']
         if 'energy' in data:
             if data['energy'] not in ['low','steady','high']:raise ValueError('Unknown energy level')
             s['energy']=data['energy']
-        for key,lo,hi in [('focusMinutes',5,60),('dayStart',0,1439),('dayEnd',1,1440),('bufferMinutes',5,60),('maxPriorities',1,5)]:
+        for key,lo,hi in [('focusMinutes',5,60),('dayStart',0,1439),('dayEnd',1,1440),('bufferMinutes',5,60),('maxPriorities',1,5),('screenWorkEnd',1,1440),('inBedBy',1,1440)]:
             if key in data:s[key]=integer(data[key],lo,hi)
+        if s.get('weeklyRhythm') and ('dayStart' in data or 'dayEnd' in data):
+            s['weeklyRhythm']=validate_rhythm({**s['weeklyRhythm'],'workStart':s['dayStart'],'workEnd':s['dayEnd']})
+        if s.get('screenWorkEnd',0)>s.get('inBedBy',1440):raise ValueError('Screen work must stop before your in-bed time')
         if s['dayStart']>=s['dayEnd']:raise ValueError('End time must be after start time')
+    elif name=='planDraft':
+        if state['settings']['paused']:raise ValueError('Resume planning first')
+        apply_draft(state,data)
     elif name=='plan':
         if state['settings']['paused']:raise ValueError('Resume planning first')
         plan,warnings=propose_plan(state,valid_date(data['date']),integer(data.get('days',1),1,7),state['planner'].get('orderedTaskIds'))

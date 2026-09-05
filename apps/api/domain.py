@@ -6,6 +6,7 @@ import copy
 import re
 from urllib.parse import urlsplit
 from .backlog import score_task, reservation, explain
+from .rhythm import windows, task_context, active_event
 
 TZ = ZoneInfo('Europe/London')
 
@@ -44,13 +45,16 @@ def task_from(data):
     category = data.get('category', 'project')
     if category not in ['project', 'prep', 'personal', 'development']:
         raise ValueError('Unknown task category')
-    return {'id': data.get('id') or uid(), 'title': title, 'category': category,
+    context=data.get('context') or ('work' if category in ('prep','development') else 'personal')
+    if context not in ('work','personal'):raise ValueError('Choose work or personal time')
+    return {'id': data.get('id') or uid(), 'title': title, 'category': category, 'context':context,
             'minutes': integer(data.get('minutes',25), 5, 480),
             'priority': integer(data.get('priority',2),1,3),
             'nextStep': text(data.get('nextStep','Open the relevant material and choose one small step.')),
             'doneWhen': text(data.get('doneWhen','Record what changed and the next step.')),
             'projectId': text(data.get('projectId',''),100),
             'lifeArea': text(data.get('lifeArea',''),30),
+            'eventId':text(data.get('eventId',''),100),'allowPersonalTime':data.get('allowPersonalTime') is True,
             'due': valid_date(data['due']) if data.get('due') else '',
             'status': 'open', 'source': text(data.get('source','You'),500),
             'createdAt': now()}
@@ -60,9 +64,10 @@ def event_from(data):
     minutes=integer(data.get('minutes',60),5,720)
     if start+minutes>1440: raise ValueError('Split events spanning midnight into two entries')
     prep=integer(data.get('prepMinutes',20),0,120)
+    if data.get('context','work') not in ('work','personal'):raise ValueError('Choose work or personal time')
     return {'id':uid(),'title':text(data.get('title',''),180),
             'date':valid_date(data['date']),'start':start,'minutes':minutes,
-            'prepMinutes':prep,'source':text(data.get('source','You'),500),
+            'context':data.get('context','work'),'prepMinutes':prep,'source':text(data.get('source','You'),500),
             'notes':text(data.get('notes',''),2000),'confirmed':bool(data.get('confirmed',False))}
 
 def goal_from(data):
@@ -81,7 +86,9 @@ def propose_plan(state, day, days=1, ranked_ids=None, current=None):
     first=date.fromisoformat(day)
     dates=[(first+timedelta(days=i)).isoformat() for i in range(days)]
     settings=state['settings']
-    keep=[copy.deepcopy(b) for b in state['plan'] if b['date'] not in dates or b.get('locked') or b.get('status') in ['active','done','skipped']]
+    inactive={e['id'] for e in state['events'] if not active_event(e)}
+    keep=[copy.deepcopy(b) for b in state['plan'] if b['date'] not in dates or b.get('locked') or (b.get('draft') and reservation(b,current)) or b.get('status') in ['active','done','skipped']]
+    keep=[b for b in keep if b.get('eventId') not in inactive or b['status'] in ('active','done')]
     tasks=[t for t in state['tasks'] if t['status']=='open']
     tasks.sort(key=lambda t:(-score_task(t,ranked_ids or [],current)['score'],t['due'] or '9999',t['createdAt']))
     remaining={t['id']:t['minutes'] for t in tasks}
@@ -91,36 +98,35 @@ def propose_plan(state, day, days=1, ranked_ids=None, current=None):
     warnings=reserve_appointments(state,keep,dates,current)
     for d in dates:
         occupied=[b for b in keep if b['date']==d and b['status']!='skipped']
-        cursor=settings['dayStart']
-        if d==current.date().isoformat(): cursor=max(cursor,((current.hour*60+current.minute+4)//5)*5)
-        if d<current.date().isoformat(): continue
+        if d<current.date().isoformat():continue
         quota=1 if settings['energy']=='low' else settings['maxPriorities']
         used_ids={b['taskId'] for b in occupied if b.get('taskId') and (b['status']=='done' or reservation(b,current))}
-        used=len(used_ids)
-        end=settings['dayEnd']
-        for task in tasks:
-            if used>=quota: break
-            if task['id'] in used_ids:continue
-            if remaining[task['id']]<=0: continue
-            duration=min(remaining[task['id']],settings['focusMinutes'])
-            previous_cursor=cursor
-            while cursor+duration+5<=end:
-                candidate={'start':cursor,'minutes':duration+5}
-                collisions=[x for x in occupied if overlaps(candidate,x)]
-                if collisions: cursor=max(x['start']+x['minutes']+settings['bufferMinutes'] for x in collisions);continue
-                break
-            if cursor+duration+5>end:
-                cursor=previous_cursor
-                continue
-            b={'id':uid(),'date':d,'start':cursor,'minutes':duration,'title':task['title'],
-               'taskId':task['id'],'kind':task['category'],'locked':False,'status':'planned',
-               'reason':('A small finishing step. ' if task['category']=='project' else 'Protected time for what matters. ')+task['nextStep']}
-            keep.append(b);occupied.append(b);remaining[task['id']]-=duration;used+=1
-            cursor+=duration
-            br={'id':uid(),'date':d,'start':cursor,'minutes':settings['bufferMinutes'],
-                'title':'Step away & reset','kind':'break','locked':False,'status':'planned','reason':'Leave some space between tasks.'}
-            if cursor+br['minutes']<=end and not any(overlaps(br,x) for x in occupied):keep.append(br);occupied.append(br)
-            cursor+=settings['bufferMinutes']
+        contexts=('work','personal') if settings.get('weeklyRhythm') else ('all',)
+        for context in contexts:
+            used=sum(1 for ident in used_ids if context=='all' or any(t['id']==ident and task_context(t)==context for t in tasks))
+            for task in tasks:
+                if used>=quota:break
+                if context!='all' and task_context(task)!=context:continue
+                if task['id'] in used_ids or remaining[task['id']]<=0:continue
+                duration=min(remaining[task['id']],settings['focusMinutes'])
+                placed=False
+                for start,end in windows(settings,d,task_context(task)):
+                    cursor=start
+                    if d==current.date().isoformat():cursor=max(cursor,((current.hour*60+current.minute+4)//5)*5)
+                    while cursor+duration<=end:
+                        candidate={'start':cursor,'minutes':duration}
+                        collisions=[x for x in occupied if overlaps(candidate,x)]
+                        if collisions:
+                            cursor=max(x['start']+x['minutes']+settings['bufferMinutes'] for x in collisions);continue
+                        b={'id':uid(),'date':d,'start':cursor,'minutes':duration,'title':task['title'],
+                           'taskId':task['id'],'kind':task['category'],'context':task_context(task),'locked':False,'status':'planned',
+                           'reason':task['nextStep']+' Finish line: '+task['doneWhen']}
+                        keep.append(b);occupied.append(b);remaining[task['id']]-=duration;used+=1;used_ids.add(task['id'])
+                        br={'id':uid(),'date':d,'start':cursor+duration,'minutes':settings['bufferMinutes'],
+                            'title':'Step away & reset','kind':'break','locked':False,'status':'planned','reason':'Leave space between tasks.'}
+                        if br['start']+br['minutes']<=end and not any(overlaps(br,x) for x in occupied):keep.append(br);occupied.append(br)
+                        placed=True;break
+                    if placed:break
     return sorted(keep,key=lambda b:(b['date'],b['start'])), warnings
 
 def reserve_appointments(state,keep,dates,current):
@@ -129,7 +135,7 @@ def reserve_appointments(state,keep,dates,current):
     warnings=[]
     # Reserve every appointment before looking for preparation. This prevents
     # an earlier event's prep slot from stealing a later event's protected time.
-    events=[e for e in state['events'] if e['date'] in dates and e.get('status')!='cancelled']
+    events=[e for e in state['events'] if e['date'] in dates and active_event(e)]
     for event in sorted(events,key=lambda e:(e['date'],e['start'])):
         existing=next((b for b in keep if b.get('eventId')==event['id'] and b['kind']=='event'),None)
         b={'id':uid(),'eventId':event['id'],'date':event['date'],'start':event['start'],
@@ -155,20 +161,20 @@ def reserve_appointments(state,keep,dates,current):
         # Prefer immediately before the meeting, then earlier gaps and previous
         # days in the requested planning window. Never schedule prep in the past.
         for d in reversed([d for d in dates if current.date().isoformat()<=d<=event['date']]):
-            lower=settings['dayStart']
-            if d==current.date().isoformat():lower=max(lower,((current.hour*60+current.minute+4)//5)*5)
-            upper=min(settings['dayEnd'],event['start']-10) if d==event['date'] else settings['dayEnd']
-            cursor=upper-event['prepMinutes']
-            occupied=[b for b in keep if b['date']==d and b['status']!='skipped']
-            while cursor>=lower:
-                prep={'id':uid(),'eventId':event['id'],'date':d,'start':cursor,
-                      'minutes':event['prepMinutes'],'title':'Prepare: '+event['title'],'kind':'prep','locked':False,
-                      'status':'planned','reason':'Read the relevant material and prepare your contribution before the appointment.'}
-                collisions=[x for x in occupied if overlaps(prep,x)]
-                if collisions:
-                    cursor=min(x['start'] for x in collisions)-settings['bufferMinutes']-event['prepMinutes']
-                    continue
-                keep.append(prep);placed=True;break
+            for lower,limit in reversed(windows(settings,d,event.get('context','work'))):
+                if d==current.date().isoformat():lower=max(lower,((current.hour*60+current.minute+4)//5)*5)
+                upper=min(limit,event['start']-10) if d==event['date'] else limit
+                cursor=upper-event['prepMinutes']
+                occupied=[b for b in keep if b['date']==d and b['status']!='skipped']
+                while cursor>=lower:
+                    prep={'id':uid(),'eventId':event['id'],'date':d,'start':cursor,
+                          'minutes':event['prepMinutes'],'title':'Prepare: '+event['title'],'kind':'prep','locked':False,
+                          'status':'planned','context':event.get('context','work'),'reason':'Review the specific agenda, decisions and questions before this appointment.'}
+                    collisions=[x for x in occupied if overlaps(prep,x)]
+                    if collisions:
+                        cursor=min(x['start'] for x in collisions)-settings['bufferMinutes']-event['prepMinutes'];continue
+                    keep.append(prep);placed=True;break
+                if placed:break
             if placed:break
         if not placed:warnings.append('Preparation needs another slot for '+event['title'])
     return warnings
