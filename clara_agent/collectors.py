@@ -23,6 +23,7 @@ def codex_metadata(db_path,project_roots):
     output=[]
     for ident,title,cwd,stamp in rows:
         if str(Path(cwd).resolve()) not in roots:continue
+        if not isinstance(title,str) or not title.strip(' .\t\r\n'):continue
         e=event('codex',ident,f'Codex task updated: {title}. This does not establish completion.',stamp)
         if e:output.append(e)
     return output

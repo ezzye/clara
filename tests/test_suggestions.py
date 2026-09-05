@@ -84,4 +84,34 @@ class Drafts(unittest.TestCase):
             with patch('clara_agent.daemon.time.time',return_value=20000+n*4000):self.assertTrue(reserve_attempt(config,'drafts'))
         with patch('clara_agent.daemon.time.time',return_value=60000):self.assertFalse(reserve_attempt(config,'ranking'))
 
+    def test_source_context_survives_acceptance_and_task_edits(self):
+        from apps.api.domain import public_state
+        self.submit({**self.item(),'category':'prep'})
+        draft=self.store.read()['suggestions'][0]
+        self.do('decideSuggestion',{'id':draft['id'],'decision':'accept'})
+        task=self.store.read()['tasks'][0]
+        self.assertEqual(task['category'],'prep')
+        self.do('editTask',{'id':task['id'],'title':'Updated task'})
+        context=public_state(self.store.read())['tasks'][0]['sourceContext']
+        self.assertEqual(context['status'],'available')
+        self.assertIn('Please send the outline',context['summary'])
+        self.do('purgeEvidence',{})
+        state=public_state(self.store.read())
+        self.assertEqual(state['tasks'][0]['sourceContext'],{'status':'removed'})
+        self.assertEqual(state['tasks'][0]['title'],'Updated task')
+
+    def test_changed_source_is_not_presented_as_current_context(self):
+        from apps.api.domain import public_state
+        self.submit();state=self.store.read()
+        state['evidence'][0]['summary']='Changed content';self.store.write(state,state['revision'])
+        context=public_state(self.store.read())['suggestions'][0]['sourceContext']
+        self.assertEqual(context,{'status':'changed'})
+
+    def test_owner_can_choose_category_and_invalid_category_is_atomic(self):
+        self.submit();draft=self.store.read()['suggestions'][0]
+        with self.assertRaises(ValueError):self.do('decideSuggestion',{'id':draft['id'],'decision':'accept','category':'unknown'})
+        self.assertEqual(self.store.read()['tasks'],[])
+        self.do('decideSuggestion',{'id':draft['id'],'decision':'accept','category':'prep'})
+        self.assertEqual(self.store.read()['tasks'][0]['category'],'prep')
+
 if __name__=='__main__':unittest.main()

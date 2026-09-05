@@ -1,8 +1,8 @@
-import json,tempfile,unittest
+import json,tempfile,unittest,sqlite3,time
 from datetime import datetime
 from pathlib import Path
 from clara_agent.brains import validate,deepseek_public_summary
-from clara_agent.collectors import folder_metadata
+from clara_agent.collectors import folder_metadata,codex_metadata
 from apps.api.storage import Store,Conflict
 from apps.api.service import action,dispatch
 
@@ -38,3 +38,12 @@ class AgentBoundaries(unittest.TestCase):
   (root/'passwords.txt').write_text('no');(root/'symlink.txt').symlink_to(root/'useful.txt')
   records=folder_metadata(root,'downloads');summaries=' '.join(e['summary'] for e in records)
   self.assertIn('useful.txt',summaries);self.assertNotIn('passwords',summaries);self.assertNotIn('symlink',summaries);self.assertNotIn('document body',summaries)
+
+ def test_empty_codex_titles_do_not_create_review_noise(self):
+  root=Path(self.tmp.name);db=root/'threads.sqlite'
+  with sqlite3.connect(db) as c:
+   c.execute('CREATE TABLE threads (id TEXT,title TEXT,cwd TEXT,updated_at INTEGER)')
+   c.executemany('INSERT INTO threads VALUES (?,?,?,?)',[(str(i),title,str(root),int(time.time())) for i,title in enumerate([None,'','  ','.','Fix review wording'])])
+  records=codex_metadata(db,[root])
+  self.assertEqual(len(records),1)
+  self.assertIn('Fix review wording',records[0]['summary'])

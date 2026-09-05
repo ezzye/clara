@@ -1,3 +1,4 @@
+import { SourceContext } from "./SourceContext";
 import { useState } from "react";
 import { Sparkles, Check, ArrowUpRight } from "lucide-react";
 import type { State, Suggestion } from "./api";
@@ -15,6 +16,7 @@ function DraftCard({
 }) {
   const [editing, setEditing] = useState(false);
   const [fields, setFields] = useState({
+    category: draft.category || "personal",
     title: draft.title,
     nextStep: draft.nextStep,
     doneWhen: draft.doneWhen,
@@ -50,6 +52,7 @@ function DraftCard({
           </p>
         )}
       </details>
+      <SourceContext context={draft.sourceContext} />
       <p className="muted">
         {draft.kind === "appointment"
           ? `${fields.date} at ${fields.start} · ${fields.minutes} minutes reserved`
@@ -68,6 +71,22 @@ function DraftCard({
       )}
       {editing && (
         <div className="draft-fields">
+          {draft.kind === "task" && (
+            <label>
+              Area
+              <select
+                value={fields.category}
+                onChange={(e) =>
+                  setFields({ ...fields, category: e.target.value })
+                }
+              >
+                <option value="prep">Meeting preparation</option>
+                <option value="project">Finish a project</option>
+                <option value="development">Development goal</option>
+                <option value="personal">Personal life</option>
+              </select>
+            </label>
+          )}
           <label>
             Title
             <input
@@ -148,7 +167,7 @@ function DraftCard({
           }
         >
           <Check size={16} />{" "}
-          {draft.kind === "appointment" ? "Add appointment" : "Add next step"}
+          {draft.kind === "appointment" ? "Add appointment" : "Add to Backlog"}
         </button>
         <button className="text-button" onClick={() => setEditing(!editing)}>
           {editing ? "Close edits" : "Adjust"}
@@ -175,6 +194,7 @@ export function SuggestionInbox({
   act: Action;
   busy: boolean;
 }) {
+  const [showAll, setShowAll] = useState(false);
   const pending = (state.suggestions || []).filter(
     (s) => s.status === "pending",
   );
@@ -182,13 +202,15 @@ export function SuggestionInbox({
     <>
       <div className="section-heading">
         <div>
-          <h2>Clara’s planning inbox</h2>
+          <h2>A few decisions, when you’re ready</h2>
           <p className="muted">
-            Small next steps from captured messages. Nothing is added until you
-            choose.
+            Add a useful task to Backlog or confirm an appointment. Tasks are
+            not assigned a time here. Nothing is added until you choose.
           </p>
         </div>
-        <span className="tag">{pending.length} to consider</span>
+        <span className="tag">
+          {Math.min(pending.length, showAll ? pending.length : 3)} to consider
+        </span>
       </div>
       <div className="card">
         <label className="toggle-row">
@@ -211,7 +233,7 @@ export function SuggestionInbox({
       </div>
       {pending.length ? (
         <div className="goals-grid">
-          {pending.map((d) => (
+          {(showAll ? pending : pending.slice(0, 3)).map((d) => (
             <DraftCard key={d.id} draft={d} act={act} busy={busy} />
           ))}
         </div>
@@ -219,10 +241,15 @@ export function SuggestionInbox({
         <div className="card empty">
           <Sparkles />
           <p>
-            No proposed next steps waiting. Clara will review eligible message
-            captures on the next available companion run.
+            Nothing needs your decision right now. Your existing plan is ready
+            to use; there is no activity checklist to clear.
           </p>
         </div>
+      )}
+      {pending.length > 3 && (
+        <button className="text-button" onClick={() => setShowAll(!showAll)}>
+          {showAll ? "Show just three" : "See other suggestions (optional)"}
+        </button>
       )}
     </>
   );

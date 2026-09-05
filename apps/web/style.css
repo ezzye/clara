@@ -1529,3 +1529,13 @@ label,
   display: block;
   margin: 12px 0;
 }
+
+.activity-history {
+  margin-top: 24px;
+}
+.activity-history > summary {
+  cursor: pointer;
+  color: var(--green);
+  font-weight: 600;
+  padding: 16px 0;
+}

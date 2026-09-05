@@ -11,6 +11,15 @@ def fingerprint(evidence):
     fields = {k: evidence.get(k, '') for k in ['id', 'source', 'summary', 'observedAt', 'sourceUrl']}
     return hashlib.sha256(json.dumps(fields, sort_keys=True).encode()).hexdigest()
 
+def source_context(state, reference):
+    """Resolve retained evidence without duplicating it into every plan item."""
+    if not reference:return None
+    evidence=next((e for e in state['evidence'] if e['id']==reference.get('id')),None)
+    if not evidence:return {'status':'removed'}
+    if evidence['status']=='dismissed':return {'status':'dismissed'}
+    if fingerprint(evidence)!=reference.get('hash'):return {'status':'changed'}
+    return {'status':'available', **{k:evidence.get(k,'') for k in ('summary','sourceUrl','observedAt','source')}}
+
 def candidates(state):
     if state['settings'].get('paused') or not state['settings'].get('suggestFromMessages', True):
         return []
@@ -52,6 +61,8 @@ def validate_drafts(items, evidence, enforce_source_dates=True):
         if kind == 'none':
             clean.append({'evidenceId': eid, 'kind': 'none'})
             continue
+        category=item.get('category','personal')
+        if category not in ('prep','project','development','personal'):raise ValueError('Unknown task category')
         title = text(item.get('title', ''), 180)
         quote = text(item.get('quote', ''), 500)
         reason = text(item.get('reason', ''), 400)
@@ -72,7 +83,7 @@ def validate_drafts(items, evidence, enforce_source_dates=True):
             raise ValueError('Proposed appointment time is not explicit in the captured evidence')
         clean.append(dict(evidenceId=eid, kind=kind, title=title, quote=quote,
                           reason=reason, nextStep=next_step, doneWhen=done_when,
-                          date=date, start=start, minutes=minutes))
+                          date=date, start=start, minutes=minutes, category=category))
     return clean
 
 def save_drafts(state, items, evidence):
@@ -106,12 +117,12 @@ def decide(state, data):
     source = next((e for e in state['evidence'] if e['id'] == suggestion['evidenceId']), None)
     if not source or source['status'] == 'dismissed' or fingerprint(source) != suggestion['sourceHash']:
         raise ValueError('The source changed or was removed. Dismiss this draft and review the source again.')
-    allowed = ['title', 'minutes', 'date', 'start', 'nextStep', 'doneWhen']
+    allowed = ['title', 'minutes', 'date', 'start', 'nextStep', 'doneWhen', 'category']
     edited = {**suggestion, **{k:data[k] for k in allowed if k in data}}
     draft = validate_drafts([edited], [source], enforce_source_dates=False)[0]
     provenance = f"Reviewed {source['source']} capture from {source['observedAt']}. Evidence: {source['id']}"
     if draft['kind'] == 'task':
-        target = task_from({**draft, 'category': 'personal', 'due': draft['date'], 'source': provenance})
+        target = task_from({**draft, 'category': draft['category'], 'due': draft['date'], 'source': provenance})
         state['tasks'].append(target)
     else:
         target = event_from({**draft, 'prepMinutes': 20, 'source': provenance,
@@ -119,4 +130,5 @@ def decide(state, data):
         state['events'].append(target)
         from .meetings import protect
         protect(state,target)
+    target['sourceRef']={'id':source['id'],'hash':fingerprint(source)}
     suggestion.update({**draft, 'status': 'accepted', 'targetId': target['id'], 'decidedAt': now()})

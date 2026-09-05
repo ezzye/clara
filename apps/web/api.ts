@@ -1,3 +1,10 @@
+export type SourceContext = {
+  status: "available" | "removed" | "changed" | "dismissed";
+  summary?: string;
+  sourceUrl?: string;
+  observedAt?: string;
+  source?: string;
+};
 export type Task = {
   id: string;
   title: string;
@@ -11,6 +18,7 @@ export type Task = {
   due: string;
   status: string;
   source: string;
+  sourceContext?: SourceContext | null;
 };
 export type Block = {
   id: string;
@@ -36,6 +44,7 @@ export type Meeting = {
   prepMinutes: number;
   notes: string;
   source: string;
+  sourceContext?: SourceContext | null;
   confirmed: boolean;
   prepared?: boolean;
   status?: "scheduled" | "cancelled";
@@ -90,6 +99,7 @@ export type State = {
   evidence: {
     id: string;
     source: string;
+    sourceUrl?: string;
     summary: string;
     observedAt: string;
     confidence: string;
@@ -138,6 +148,8 @@ export type BacklogItem = {
   consideredAt: string | null;
 };
 export type Suggestion = {
+  category?: string;
+  sourceContext?: SourceContext | null;
   id: string;
   evidenceId: string;
   kind: "task" | "appointment";

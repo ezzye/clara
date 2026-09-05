@@ -1,3 +1,4 @@
+import { SourceContext } from "./SourceContext";
 import { useState } from "react";
 import { ArrowUpRight, ListTodo } from "lucide-react";
 import type { State, Task } from "./api";
@@ -151,6 +152,7 @@ export function BacklogView({
               </label>
             </div>
             <p>{task.nextStep}</p>
+            <SourceContext context={task.sourceContext} />
             <p className="muted">
               {task.minutes} estimated minutes · {row.reservedMinutes} reserved
               {task.due ? ` · due ${task.due}` : ""}

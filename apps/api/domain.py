@@ -199,5 +199,14 @@ def public_state(state):
     s['backlog']=explain(state)
     from .meetings import preparation
     for event in s['events']:event['preparation']=preparation(event,state['plan'])
+    from .suggestions import source_context
+    accepted={x.get('targetId'):x for x in state.get('suggestions',[]) if x.get('status')=='accepted'}
+    for item in s['tasks']+s['events']:
+        reference=item.get('sourceRef')
+        legacy=accepted.get(item['id'])
+        if not reference and legacy:reference={'id':legacy['evidenceId'],'hash':legacy['sourceHash']}
+        item['sourceContext']=source_context(state,reference)
+    for draft in s.get('suggestions',[]):
+        draft['sourceContext']=source_context(state,{'id':draft['evidenceId'],'hash':draft['sourceHash']})
     for d in s['devices']:d.pop('tokenHash',None)
     return s

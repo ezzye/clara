@@ -53,3 +53,14 @@ Current and legacy Jira identities include the full site origin. Browser capture
 The local Codex adapter follows the [official Codex SDK and automation guidance](https://learn.chatgpt.com/docs/codex-sdk), using the installed CLI interface verified during development. The Python implementation uses the CLI's structured response support. It preserves the installed model default unless configured. A production cloud Codex worker needs a separate deployment and authentication decision; copying a laptop's entire credentials folder into AWS is not part of this setup.
 
 DeepSeek is an optional adapter, accepts public-labelled inputs only and needs a server-side `DEEPSEEK_API_KEY`. No private source has been submitted to DeepSeek in this release. The adapter is not scheduled until a bounded job and budget are configured.
+
+
+## When a work device blocks installation
+
+A browser extension or persistent scheduled companion may be blocked by workplace security controls. Do not work around those controls or reinstall a removed schedule. The existing upload-only pairing can support a foreground manual run when permitted. In that mode, collection occurs only when the owner runs it; a recent check-in is not proof that background scheduling is active. Interactive Chrome captures remain bounded and owner-reviewed before upload.
+
+## A calmer Review page
+
+Review opens with at most three actionable suggestions. Add to Backlog creates an unscheduled task; it does not reserve time, send a message or claim completion. More suggestions and routine activity history are optional. Empty Codex task titles are skipped at collection and previously captured empty-title notices are hidden from history.
+
+Source context follows accepted tasks and appointments through a reference to retained evidence. It includes the original captured summary, capture time and source link, rather than a claim that the source has been rechecked live. If evidence is removed, dismissed or changed, the context reflects that state. The owner's chosen task or appointment remains; source details are not duplicated to evade retention. Task category can be adjusted before acceptance.

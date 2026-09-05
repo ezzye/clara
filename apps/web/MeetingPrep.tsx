@@ -1,3 +1,4 @@
+import { SourceContext } from "./SourceContext";
 import { useEffect, useState } from "react";
 import type { Meeting, State } from "./api";
 
@@ -100,6 +101,7 @@ function MeetingCard({
         {e.date} · {time(e.start)} · {e.minutes} min · London time
       </span>
       <h2>{e.title}</h2>
+      <SourceContext context={e.sourceContext} />
       <p className="muted">
         {e.confirmed
           ? "Appointment details checked by you."

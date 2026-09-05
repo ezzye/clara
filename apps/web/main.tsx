@@ -1,3 +1,4 @@
+import { SourceContext } from "./SourceContext";
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
@@ -223,7 +224,16 @@ function App() {
   const remaining = active
     ? Math.max(0, active.minutes * 60 - elapsed)
     : state.settings.focusMinutes * 60;
-  const evidence = state.evidence.filter((e) => e.status === "unreviewed");
+  const reviewDecisions = Math.min(
+    3,
+    (state.suggestions || []).filter((s) => s.status === "pending").length,
+  );
+  const activityHistory = state.evidence.filter(
+    (e) =>
+      !/^Codex task updated:\s*\.*\s*This does not establish completion\.$/.test(
+        e.summary,
+      ),
+  );
   const done = blocks.filter((b) => b.status === "done" && b.kind !== "break");
   const totalMinutes = blocks
     .filter((b) => b.kind !== "break")
@@ -309,8 +319,8 @@ function App() {
             >
               <Icon size={19} />
               {name}
-              {name === "Review" && evidence.length > 0 && (
-                <span className="badge">{evidence.length}</span>
+              {name === "Review" && reviewDecisions > 0 && (
+                <span className="badge">{reviewDecisions}</span>
               )}
             </button>
           ))}
@@ -402,7 +412,7 @@ function App() {
                           : view === "Projects"
                             ? "Less starting. More finishing."
                             : view === "Review"
-                              ? "Notice what actually helped."
+                              ? "A few useful decisions."
                               : view === "Connections"
                                 ? "Your world, brought together."
                                 : "Make Clara work for you."}
@@ -421,7 +431,7 @@ function App() {
                           : view === "Projects"
                             ? "Turn active ideas into a small number of useful outcomes."
                             : view === "Review"
-                              ? "Activity is a clue. You decide what it means."
+                              ? "Choose what belongs in your plan. Routine activity needs no review."
                               : view === "Connections"
                                 ? "Connect deliberately. See what arrived. Pause whenever you need."
                                 : "Choose a rhythm that feels sustainable."}
@@ -1026,134 +1036,155 @@ function App() {
           {view === "Review" && (
             <>
               <SuggestionInbox state={state} act={act} busy={busy} />
-              <div className="stats">
-                <div className="card">
-                  <p>Planned today</p>
-                  <strong>
-                    {totalMinutes}
-                    <small> minutes</small>
-                  </strong>
-                </div>
-                <div className="card">
-                  <p>Sessions you finished</p>
-                  <strong>
-                    {done.length}
-                    <small>
-                      {" "}
-                      of {blocks.filter((b) => b.kind !== "break").length}
-                    </small>
-                  </strong>
-                </div>
-                <div className="card">
-                  <p>Evidence to review</p>
-                  <strong>
-                    {evidence.length}
-                    <small> clues, not verdicts</small>
-                  </strong>
-                </div>
-              </div>
-              <div className="card">
-                <h2>Planned and observed</h2>
+              <details className="activity-history">
+                <summary>
+                  Activity history and session details (optional)
+                </summary>
                 <p className="muted">
-                  Elapsed sessions are self-reported. Files, commits and
-                  messages can suggest activity; they cannot prove attention or
-                  completion.
+                  These are observations, not proposed tasks. You can leave them
+                  alone. Confirming an observation does not add work to Backlog,
+                  schedule time, or mark anything complete.
                 </p>
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Task</th>
-                        <th>Planned</th>
-                        <th>Recorded</th>
-                        <th>Outcome</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {blocks
-                        .filter((b) => b.kind !== "break")
-                        .map((b) => (
-                          <tr key={b.id}>
-                            <td>{b.title}</td>
-                            <td>{b.minutes} min</td>
-                            <td>
-                              {b.actualMinutes === undefined
-                                ? "Unknown"
-                                : `${b.actualMinutes} min`}
-                            </td>
-                            <td>
-                              {b.status === "done"
-                                ? "Session complete"
-                                : b.status === "skipped"
-                                  ? "Set aside"
-                                  : "Not confirmed"}
-                            </td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-              <div className="section-heading">
-                <h2>What the evidence suggests</h2>
-                <button
-                  className="small-button"
-                  onClick={() => setModal("evidence")}
-                >
-                  <Plus size={16} /> Record what happened
-                </button>
-              </div>
-              {state.evidence
-                .slice()
-                .reverse()
-                .map((e) => (
-                  <div className="card evidence-row" key={e.id}>
-                    <span className="source-icon">
-                      <Monitor size={20} />
-                    </span>
-                    <div>
-                      <span className="tag">
-                        {e.source} · {e.confidence} confidence
-                      </span>
-                      <p>{e.summary}</p>
-                      <small>
-                        {new Date(e.observedAt).toLocaleString("en-GB")} ·{" "}
-                        {e.status}
-                      </small>
-                    </div>
-                    {e.status === "unreviewed" && (
-                      <div className="card-actions">
-                        <button
-                          className="small-button"
-                          onClick={() =>
-                            act("reviewEvidence", {
-                              id: e.id,
-                              status: "confirmed",
-                            })
-                          }
-                        >
-                          That’s right
-                        </button>
-                        <button
-                          className="text-button"
-                          onClick={() =>
-                            act("reviewEvidence", {
-                              id: e.id,
-                              status: "dismissed",
-                            })
-                          }
-                        >
-                          Dismiss
-                        </button>
-                      </div>
-                    )}
+                <div className="stats">
+                  <div className="card">
+                    <p>Planned today</p>
+                    <strong>
+                      {totalMinutes}
+                      <small> minutes</small>
+                    </strong>
                   </div>
-                ))}
-              {!state.evidence.length && (
-                <div className="card empty">
-                  <p>No observed activity yet. Unknown time stays unknown.</p>
+                  <div className="card">
+                    <p>Sessions you finished</p>
+                    <strong>
+                      {done.length}
+                      <small>
+                        {" "}
+                        of {blocks.filter((b) => b.kind !== "break").length}
+                      </small>
+                    </strong>
+                  </div>
+                  <div className="card">
+                    <p>Activity records</p>
+                    <strong>
+                      {activityHistory.length}
+                      <small> no action required</small>
+                    </strong>
+                  </div>
                 </div>
-              )}
+                <div className="card">
+                  <h2>Planned and observed</h2>
+                  <p className="muted">
+                    Elapsed sessions are self-reported. Files, commits and
+                    messages can suggest activity; they cannot prove attention
+                    or completion.
+                  </p>
+                  <div className="table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Task</th>
+                          <th>Planned</th>
+                          <th>Recorded</th>
+                          <th>Outcome</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {blocks
+                          .filter((b) => b.kind !== "break")
+                          .map((b) => (
+                            <tr key={b.id}>
+                              <td>{b.title}</td>
+                              <td>{b.minutes} min</td>
+                              <td>
+                                {b.actualMinutes === undefined
+                                  ? "Unknown"
+                                  : `${b.actualMinutes} min`}
+                              </td>
+                              <td>
+                                {b.status === "done"
+                                  ? "Session complete"
+                                  : b.status === "skipped"
+                                    ? "Set aside"
+                                    : "Not confirmed"}
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <div className="section-heading">
+                  <h2>Recorded observations</h2>
+                  <button
+                    className="small-button"
+                    onClick={() => setModal("evidence")}
+                  >
+                    <Plus size={16} /> Record what happened
+                  </button>
+                </div>
+                {activityHistory
+                  .slice()
+                  .reverse()
+                  .map((e) => (
+                    <div className="card evidence-row" key={e.id}>
+                      <span className="source-icon">
+                        <Monitor size={20} />
+                      </span>
+                      <div>
+                        <span className="tag">
+                          {e.source} · {e.confidence} confidence
+                        </span>
+                        <p>{e.summary}</p>
+                        {e.sourceUrl && (
+                          <p>
+                            <a
+                              href={e.sourceUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Open original source
+                            </a>
+                          </p>
+                        )}
+                        <small>
+                          {new Date(e.observedAt).toLocaleString("en-GB")} ·{" "}
+                          {e.status}
+                        </small>
+                      </div>
+                      {e.status === "unreviewed" && (
+                        <div className="card-actions">
+                          <button
+                            className="small-button"
+                            onClick={() =>
+                              act("reviewEvidence", {
+                                id: e.id,
+                                status: "confirmed",
+                              })
+                            }
+                          >
+                            Confirm observation
+                          </button>
+                          <button
+                            className="text-button"
+                            onClick={() =>
+                              act("reviewEvidence", {
+                                id: e.id,
+                                status: "dismissed",
+                              })
+                            }
+                          >
+                            Dismiss
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                {!activityHistory.length && (
+                  <div className="card empty">
+                    <p>No observed activity yet. Unknown time stays unknown.</p>
+                  </div>
+                )}
+              </details>
             </>
           )}
           {view === "Connections" && (
@@ -1487,6 +1518,7 @@ function App() {
                     />
                   </label>
                 </div>
+                <SourceContext context={editing?.sourceContext} />
                 <label>
                   The first small step
                   <textarea name="nextStep" defaultValue={editing?.nextStep} />
