@@ -30,6 +30,12 @@ There is no verified universal, cross-device Cowork history API in this implemen
 
 The connected Gmail tool used during app construction is not a reusable OAuth credential for a separate website. `clara_agent/gmail.py` is a bounded metadata reader, but is not enabled by the daemon or connected to an account by default. Complete an installed-app OAuth flow with `gmail.readonly`, save its refresh credentials in the OS credential manager under service `clara-gmail`, then integrate that source into the daemon. Never copy cookies, Codex plugin tokens, passwords or one-time codes. OAuth consent UI and automatic event extraction remain to be built.
 
+## WhatsApp
+
+The browser companion supports explicitly selected text on `https://web.whatsapp.com`. Add that exact origin in its settings, highlight the relevant messages, preview and edit the extract, then submit. On WhatsApp it refuses a whole-page capture. Include the conversation name and message date in the reviewed brief where useful. A message is evidence of a discussion, not automatically an agreed commitment or proof of completion.
+
+The native WhatsApp app can be reviewed interactively through the owner's authorized computer session. That access is not an installed daemon integration. No continuous WhatsApp monitoring, historical backfill, sending or contact-management capability is enabled here. A future local adapter needs allowlisted conversations, source timestamps, correction/deletion handling and reliable deduplication. Keep private chats out of public source and the public-only DeepSeek route.
+
 ## smile and Co-operative Bank
 
 Use a regulated Account Information Service provider that currently supports both accounts. Verify provider coverage and FCA registration, then choose read-only account/transaction consent, with no payment-initiation scope. The owner is redirected to the genuine bank service to authorize. Clara must not receive bank passwords, PINs or passcodes. Tokens remain in a private server secret store, with revocation and expiry visible.

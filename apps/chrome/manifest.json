@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Clara work companion",
+  "name": "Clara browser companion",
   "version": "0.1.0",
-  "description": "Capture selected work pages as private evidence for your Clara planner.",
+  "description": "Review work-page extracts or selected WhatsApp messages as private planning evidence.",
   "permissions": ["activeTab", "scripting", "storage"],
   "optional_host_permissions": ["https://*/*"],
   "background": { "service_worker": "worker.js" },

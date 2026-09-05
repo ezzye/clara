@@ -1,4 +1,5 @@
 let source = "";
+let sourceType = "chrome";
 const status = document.getElementById("status");
 document.getElementById("settings").onclick = () =>
   chrome.runtime.openOptionsPage();
@@ -11,18 +12,24 @@ document.getElementById("preview").onclick = async () => {
     });
     const url = new URL(tab.url);
     if (!config.origins?.split("\n").includes(url.origin))
-      throw Error("This work origin is not on your approved list.");
+      throw Error("This origin is not on your approved list.");
+    const isWhatsApp = url.hostname === "web.whatsapp.com";
     const result = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      func: () => ({
+      args: [isWhatsApp],
+      func: (selectionOnly) => ({
         title: document.title,
-        text: (document.querySelector("main") || document.body).innerText.slice(
-          0,
-          6000,
-        ),
+        text: (selectionOnly
+          ? window.getSelection()?.toString() || ""
+          : (document.querySelector("main") || document.body).innerText
+        ).slice(0, 6000),
       }),
     });
     const data = result[0].result;
+    if (!data.text.trim())
+      throw Error(
+        "Select the relevant messages in the chat first. Clara does not read the whole WhatsApp page.",
+      );
     if (
       /one.time|passcode|password|verification code|secure key|\botp\b|api.?key|bearer/i.test(
         data.text,
@@ -32,6 +39,7 @@ document.getElementById("preview").onclick = async () => {
         "Authentication material detected. Capture a different page.",
       );
     source = url.hostname;
+    sourceType = isWhatsApp ? "whatsapp" : "chrome";
     document.getElementById("brief").value = (
       data.title +
       "\n" +
@@ -49,7 +57,8 @@ document.getElementById("send").onclick = async () => {
   if (!summary) return;
   const reply = await chrome.runtime.sendMessage({
     type: "sendBrief",
-    summary: "Work page (" + source + "): " + summary,
+    source: sourceType,
+    summary: "Selected source (" + source + "): " + summary,
   });
   status.textContent = reply.ok ? "Saved as unreviewed evidence." : reply.error;
 };

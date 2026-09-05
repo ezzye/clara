@@ -7,6 +7,7 @@ export type Task = {
   nextStep: string;
   doneWhen: string;
   projectId: string;
+  lifeArea?: string;
   due: string;
   status: string;
   source: string;

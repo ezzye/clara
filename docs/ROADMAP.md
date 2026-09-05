@@ -18,6 +18,7 @@ Expand the initial inventory into an evidence-backed portfolio: current checkout
 ## Remaining connectors
 
 - Complete Gmail installed-app OAuth and provenance-preserving appointment/task extraction.
+- Add a local WhatsApp adapter for selected conversations, with source dates, commitment review and deduplication; the current browser path requires selected text and manual submission.
 - Verify Cowork exports and cross-device identity matching on both Macs.
 - Install and test the Windows companion on the actual PC.
 - Choose and onboard a regulated, read-only Open Banking provider with verified account coverage.

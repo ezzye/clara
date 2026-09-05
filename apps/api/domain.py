@@ -48,6 +48,7 @@ def task_from(data):
             'nextStep': text(data.get('nextStep','Open the relevant material and choose one small step.')),
             'doneWhen': text(data.get('doneWhen','Record what changed and the next step.')),
             'projectId': text(data.get('projectId',''),100),
+            'lifeArea': text(data.get('lifeArea',''),30),
             'due': valid_date(data['due']) if data.get('due') else '',
             'status': 'open', 'source': text(data.get('source','You'),500),
             'createdAt': now()}
@@ -137,7 +138,7 @@ SECRET_PATTERN=re.compile(r'one.time|passcode|password|verification code|secure 
 
 def evidence_from(data,device):
     source=text(data.get('source',''),40)
-    if source not in ['codex','cowork','downloads','git','gmail','chrome','manual']:raise ValueError('Unknown evidence source')
+    if source not in ['codex','cowork','downloads','git','gmail','chrome','whatsapp','nhs','manual']:raise ValueError('Unknown evidence source')
     summary=text(data.get('summary',''),800)
     if SECRET_PATTERN.search(summary):raise ValueError('Authentication material is excluded')
     when=datetime.fromisoformat(data['observedAt'])

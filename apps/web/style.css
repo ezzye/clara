@@ -1397,3 +1397,53 @@ label,
     grid-template-columns: repeat(2, 1fr);
   }
 }
+.life-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+.life-heading {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 18px;
+}
+.life-heading h2 {
+  margin: 0 0 5px;
+}
+.life-heading small {
+  font-size: 0.75rem;
+}
+.life-task {
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+  margin-top: 20px;
+}
+.life-task h3 {
+  margin: 12px 0 8px;
+}
+.life-task > p {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+.resource-link {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 20px;
+  font-size: 0.8125rem;
+  color: #386d59;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.life-card:last-child {
+  grid-column: 1/-1;
+}
+.life-card:last-child .life-task {
+  max-width: 720px;
+}
+@media (max-width: 800px) {
+  .life-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -7,6 +7,7 @@ A private personal assistant for preparing, focusing and finishing. Clara turns 
 ## Working in this release
 
 - Now, Hour, Day and Week plans; Month and Year outcome views.
+- A Life view for sleep routines, health follow-up, inbox distractions, social time and exploring a business, within the same daily capacity.
 - Editable tasks, clear first steps and stopping points, priorities, parking and completion.
 - Meeting appointments, protected times, preparation blocks and editable briefings.
 - Focus timer, adjustable session lengths, buffers and lower-energy planning.
@@ -16,13 +17,15 @@ A private personal assistant for preparing, focusing and finishing. Clara turns 
 - Encrypted DynamoDB state, private deployment artifacts and a 15-minute cloud scheduler.
 - Revocable macOS/Windows companion credentials, read-only Codex and folder metadata collectors.
 - Codex proposes task order; tested scheduling rules constrain the result. Models cannot mark work complete or take external actions.
-- Optional, manual Chrome work-page briefs and a public-data-only DeepSeek adapter.
+- Optional, manual Chrome work-page briefs, selected WhatsApp Web messages and a public-data-only DeepSeek adapter.
 
 ## Not connected automatically
 
 Gmail OAuth, bank feeds, the second MacBook and Windows PC require their own setup. The Chrome extension requires exact work origins and manual review; it does not yet autonomously scrape Jira, Confluence, Outlook or Slack. Meeting briefs currently support structured manual preparation, not fully automatic research. Cowork support is limited to selected exported-file metadata. The DeepSeek adapter is not active by default. This is an initial working foundation, not a claim that every integration is complete.
 
 ## Run locally
+
+The Life view holds chosen next actions, not medical records. NHS and watch data have no background connection; manually reviewed appointment snapshots and links to NHS services are supported. It does not diagnose, prescribe sleep times, or make bookings.
 
 Requires Node.js 22+ and Python 3.12.
 

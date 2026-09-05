@@ -26,6 +26,7 @@ import {
   ShieldCheck,
   Monitor,
   Download,
+  Heart,
 } from "lucide-react";
 import {
   api,
@@ -39,6 +40,7 @@ import {
   type Meeting,
 } from "./api";
 import "./style.css";
+import { LifeView } from "./LifeView";
 const today = () =>
   new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/London",
@@ -68,6 +70,7 @@ const nav = [
   ["Plan", CalendarDays],
   ["Meeting prep", BookOpen],
   ["Projects", Layers],
+  ["Life", Heart],
   ["Review", BarChart3],
   ["Connections", Link2],
   ["Preferences", Settings],
@@ -374,13 +377,15 @@ function App() {
                     ? "A plan you can change."
                     : view === "Meeting prep"
                       ? "Walk in prepared."
-                      : view === "Projects"
-                        ? "Less starting. More finishing."
-                        : view === "Review"
-                          ? "Notice what actually helped."
-                          : view === "Connections"
-                            ? "Your world, brought together."
-                            : "Make Clara work for you."}
+                      : view === "Life"
+                        ? "Make space for a fuller life."
+                        : view === "Projects"
+                          ? "Less starting. More finishing."
+                          : view === "Review"
+                            ? "Notice what actually helped."
+                            : view === "Connections"
+                              ? "Your world, brought together."
+                              : "Make Clara work for you."}
               </h1>
               <p>
                 {view === "Now"
@@ -389,13 +394,15 @@ function App() {
                     ? "Keep the important things close and leave room for life."
                     : view === "Meeting prep"
                       ? "Know the purpose, read what matters, and bring your questions."
-                      : view === "Projects"
-                        ? "Turn active ideas into a small number of useful outcomes."
-                        : view === "Review"
-                          ? "Activity is a clue. You decide what it means."
-                          : view === "Connections"
-                            ? "Connect deliberately. See what arrived. Pause whenever you need."
-                            : "Choose a rhythm that feels sustainable."}
+                      : view === "Life"
+                        ? "Sleep, health, connection and a more secure future count as progress."
+                        : view === "Projects"
+                          ? "Turn active ideas into a small number of useful outcomes."
+                          : view === "Review"
+                            ? "Activity is a clue. You decide what it means."
+                            : view === "Connections"
+                              ? "Connect deliberately. See what arrived. Pause whenever you need."
+                              : "Choose a rhythm that feels sustainable."}
               </p>
             </div>
             {["Now", "Plan"].includes(view) && (
@@ -842,6 +849,9 @@ function App() {
               )}
             </>
           )}
+          {view === "Life" && (
+            <LifeView state={state} act={act} onEdit={showTask} />
+          )}
           {view === "Projects" && (
             <>
               <div className="section-heading">
@@ -1159,7 +1169,15 @@ function App() {
                 {[
                   [
                     "Gmail",
-                    "Snapshot reviewed in this task. Background OAuth connection not set up.",
+                    "Background OAuth connection not set up. Reviewed snapshots appear in Review.",
+                  ],
+                  [
+                    "WhatsApp",
+                    "Capture selected messages from WhatsApp Web for review. Background chat monitoring is not connected.",
+                  ],
+                  [
+                    "NHS",
+                    "Reviewed appointment snapshots only. Open NHS for current records; no background clinical-record access.",
                   ],
                   [
                     "Codex projects",
@@ -1191,7 +1209,13 @@ function App() {
                             (e) => e.source === "downloads",
                           )) ||
                         (title === "Codex projects" &&
-                          state.evidence.some((e) => e.source === "codex"))
+                          state.evidence.some((e) => e.source === "codex")) ||
+                        (title === "WhatsApp" &&
+                          state.evidence.some(
+                            (e) => e.source === "whatsapp",
+                          )) ||
+                        (title === "NHS" &&
+                          state.evidence.some((e) => e.source === "nhs"))
                           ? "Evidence received"
                           : "Setup needed"}
                       </span>
