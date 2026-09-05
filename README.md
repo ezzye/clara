@@ -7,8 +7,11 @@ A private personal assistant for preparing, focusing and finishing. Clara turns 
 ## Working in this release
 
 - Now, Hour, Day and Week plans; Month and Year outcome views.
+- A complete list of known unfinished tasks in Backlog, including unscheduled, partly scheduled and parked work; editable personal priorities and a recorded planning-pass explanation.
 - A Life view for sleep routines, health follow-up, inbox distractions, social time and exploring a business, within the same daily capacity.
 - Editable tasks, clear first steps and stopping points, priorities, parking and completion.
+- A planning inbox: Codex drafts tasks or appointments from up to three eligible message captures, with exact source passages and editable owner acceptance.
+- Project milestones, repeat-safe updates and an explicit review of the usable result before recording delivery.
 - Meeting appointments, protected times, preparation blocks and editable briefings.
 - Focus timer, adjustable session lengths, buffers and lower-energy planning.
 - Plan-versus-recorded-session review, evidence provenance and explicit confirmation.
@@ -16,7 +19,7 @@ A private personal assistant for preparing, focusing and finishing. Clara turns 
 - Single-owner AWS authentication with Cognito, PKCE, TOTP MFA and disabled self-registration.
 - Encrypted DynamoDB state, private deployment artifacts and a 15-minute cloud scheduler.
 - Revocable macOS/Windows companion credentials, read-only Codex and folder metadata collectors.
-- Codex proposes task order; tested scheduling rules constrain the result. Models cannot mark work complete or take external actions.
+- Codex proposes task order and source-backed drafts; tested scheduling rules constrain the result. Models cannot mark work complete or take external actions. Ranking and drafting share an eight-call daily budget on the planning laptop, including failed attempts.
 - Optional, manual Chrome work-page briefs, selected WhatsApp Web messages and a public-data-only DeepSeek adapter.
 
 ## Not connected automatically
@@ -45,6 +48,7 @@ python3 -m venv .venv
 ```
 
 See [Connections](docs/CONNECTIONS.md) for per-device setup and its current limits.
+For the second MacBook, use the [work-Mac setup and Codex handoff](docs/WORK-MAC.md).
 
 ## Deploy on AWS
 

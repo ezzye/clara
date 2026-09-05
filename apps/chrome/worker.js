@@ -20,6 +20,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
             {
               id: crypto.randomUUID(),
               source: message.source === "whatsapp" ? "whatsapp" : "chrome",
+              sourceUrl: String(message.sourceUrl || "").slice(0, 1000),
               summary: String(message.summary).slice(0, 800),
               observedAt: new Date().toISOString(),
               confidence: "low",

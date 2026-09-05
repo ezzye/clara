@@ -27,6 +27,7 @@ import {
   Monitor,
   Download,
   Heart,
+  ListTodo,
 } from "lucide-react";
 import {
   api,
@@ -41,6 +42,9 @@ import {
 } from "./api";
 import "./style.css";
 import { LifeView } from "./LifeView";
+import { SuggestionInbox } from "./SuggestionInbox";
+import { ProjectFinish } from "./ProjectFinish";
+import { BacklogView } from "./BacklogView";
 const today = () =>
   new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/London",
@@ -68,6 +72,7 @@ const niceDate = (d: string) =>
 const nav = [
   ["Now", Sun],
   ["Plan", CalendarDays],
+  ["Backlog", ListTodo],
   ["Meeting prep", BookOpen],
   ["Projects", Layers],
   ["Life", Heart],
@@ -377,15 +382,17 @@ function App() {
                     ? "A plan you can change."
                     : view === "Meeting prep"
                       ? "Walk in prepared."
-                      : view === "Life"
-                        ? "Make space for a fuller life."
-                        : view === "Projects"
-                          ? "Less starting. More finishing."
-                          : view === "Review"
-                            ? "Notice what actually helped."
-                            : view === "Connections"
-                              ? "Your world, brought together."
-                              : "Make Clara work for you."}
+                      : view === "Backlog"
+                        ? "Everything still to do."
+                        : view === "Life"
+                          ? "Make space for a fuller life."
+                          : view === "Projects"
+                            ? "Less starting. More finishing."
+                            : view === "Review"
+                              ? "Notice what actually helped."
+                              : view === "Connections"
+                                ? "Your world, brought together."
+                                : "Make Clara work for you."}
               </h1>
               <p>
                 {view === "Now"
@@ -394,15 +401,17 @@ function App() {
                     ? "Keep the important things close and leave room for life."
                     : view === "Meeting prep"
                       ? "Know the purpose, read what matters, and bring your questions."
-                      : view === "Life"
-                        ? "Sleep, health, connection and a more secure future count as progress."
-                        : view === "Projects"
-                          ? "Turn active ideas into a small number of useful outcomes."
-                          : view === "Review"
-                            ? "Activity is a clue. You decide what it means."
-                            : view === "Connections"
-                              ? "Connect deliberately. See what arrived. Pause whenever you need."
-                              : "Choose a rhythm that feels sustainable."}
+                      : view === "Backlog"
+                        ? "See what was considered, what needs time, and what matters to you."
+                        : view === "Life"
+                          ? "Sleep, health, connection and a more secure future count as progress."
+                          : view === "Projects"
+                            ? "Turn active ideas into a small number of useful outcomes."
+                            : view === "Review"
+                              ? "Activity is a clue. You decide what it means."
+                              : view === "Connections"
+                                ? "Connect deliberately. See what arrived. Pause whenever you need."
+                                : "Choose a rhythm that feels sustainable."}
               </p>
             </div>
             {["Now", "Plan"].includes(view) && (
@@ -852,6 +861,14 @@ function App() {
           {view === "Life" && (
             <LifeView state={state} act={act} onEdit={showTask} />
           )}
+          {view === "Backlog" && (
+            <BacklogView
+              state={state}
+              act={act}
+              busy={busy}
+              onEdit={showTask}
+            />
+          )}
           {view === "Projects" && (
             <>
               <div className="section-heading">
@@ -942,8 +959,8 @@ function App() {
                     <div>
                       <h2>Project inventory</h2>
                       <p className="muted">
-                        A current checkout inventory, not yet a full delivery
-                        assessment. Choose one to investigate.
+                        Choose a useful outcome and one small milestone. Record
+                        delivery only after checking the result.
                       </p>
                     </div>
                     <span className="tag">
@@ -952,30 +969,12 @@ function App() {
                   </div>
                   <div className="goals-grid">
                     {state.projects.map((p) => (
-                      <section className="card" key={p.id}>
-                        <h2>{p.title}</h2>
-                        <p>{p.outcome}</p>
-                        <p className="muted">{p.nextStep}</p>
-                        <small className="source">{p.source}</small>
-                        <button
-                          className="small-button"
-                          onClick={() =>
-                            act("addTask", {
-                              title: "Define a finish line for " + p.title,
-                              category: "project",
-                              projectId: p.id,
-                              minutes: 25,
-                              priority: 2,
-                              nextStep: p.nextStep,
-                              doneWhen:
-                                "A useful result, its intended user and the smallest delivery gap are recorded.",
-                              source: p.source,
-                            })
-                          }
-                        >
-                          Choose a finishing step <ArrowRight size={16} />
-                        </button>
-                      </section>
+                      <ProjectFinish
+                        key={p.id}
+                        project={p}
+                        act={act}
+                        busy={busy}
+                      />
                     ))}
                   </div>
                 </>
@@ -1022,6 +1021,7 @@ function App() {
           )}
           {view === "Review" && (
             <>
+              <SuggestionInbox state={state} act={act} busy={busy} />
               <div className="stats">
                 <div className="card">
                   <p>Planned today</p>
@@ -1154,6 +1154,29 @@ function App() {
           )}
           {view === "Connections" && (
             <>
+              {!!state.sourceConnections?.length && (
+                <div className="card">
+                  <h2>Your verified work-site links</h2>
+                  <p className="muted">
+                    Found in Outlook. A verified address is not yet a running
+                    background connection.
+                  </p>
+                  {state.sourceConnections.map((s) => (
+                    <div className="section-heading" key={s.label}>
+                      <div>
+                        <strong>{s.label}</strong>
+                        <p>{s.note}</p>
+                        {s.url && (
+                          <a href={s.url} target="_blank" rel="noreferrer">
+                            Open site <ArrowUpRight size={14} />
+                          </a>
+                        )}
+                      </div>
+                      <span className="tag">{s.status}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="connection-banner">
                 <ShieldCheck />
                 <div>
@@ -1673,8 +1696,8 @@ function App() {
                 <h2>Pair a laptop.</h2>
                 <p>
                   This grants access to upload selected activity summaries.
-                  Optionally allow this laptop to read task briefs and propose
-                  their order.
+                  Optionally allow this laptop to read task briefs and eligible
+                  message captures, propose task order and draft next steps.
                 </p>
                 <label>
                   Laptop name
@@ -1695,7 +1718,7 @@ function App() {
                 </label>
                 <label className="checkbox-label">
                   <input type="checkbox" name="planner" /> Allow Codex planning
-                  on this laptop (task briefs only)
+                  on this laptop (task briefs and eligible message captures)
                 </label>
                 <button className="primary">Create pairing key</button>
               </form>
@@ -1704,8 +1727,9 @@ function App() {
               <>
                 <h2>Delete observed activity?</h2>
                 <p>
-                  This removes the activity held by Clara. Tasks and plans
-                  remain. Export first if you want a copy.
+                  This removes captured activity and its associated drafts.
+                  Accepted tasks and plans remain. Export first if you want a
+                  copy.
                 </p>
                 <button
                   className="primary"

@@ -4,6 +4,8 @@ from zoneinfo import ZoneInfo
 from uuid import uuid4
 import copy
 import re
+from urllib.parse import urlsplit
+from .backlog import score_task, reservation, explain
 
 TZ = ZoneInfo('Europe/London')
 
@@ -81,12 +83,10 @@ def propose_plan(state, day, days=1, ranked_ids=None, current=None):
     settings=state['settings']
     keep=[copy.deepcopy(b) for b in state['plan'] if b['date'] not in dates or b.get('locked') or b.get('status') in ['active','done','skipped']]
     tasks=[t for t in state['tasks'] if t['status']=='open']
-    rank={v:i for i,v in enumerate(ranked_ids or [])}
-    urgent=(current.date()+timedelta(days=7)).isoformat()
-    tasks.sort(key=lambda t:(0 if t['due'] and t['due']<=urgent else 1,rank.get(t['id'],999),-t['priority'],t['due'] or '9999',t['createdAt']))
+    tasks.sort(key=lambda t:(-score_task(t,ranked_ids or [],current)['score'],t['due'] or '9999',t['createdAt']))
     remaining={t['id']:t['minutes'] for t in tasks}
     for b in keep:
-        if b.get('taskId') in remaining and b.get('status')!='done':
+        if b.get('taskId') in remaining and reservation(b,current):
             remaining[b['taskId']]=max(0,remaining[b['taskId']]-b['minutes'])
     warnings=[]
     for d in dates:
@@ -111,18 +111,23 @@ def propose_plan(state, day, days=1, ranked_ids=None, current=None):
         if d==current.date().isoformat(): cursor=max(cursor,((current.hour*60+current.minute+4)//5)*5)
         if d<current.date().isoformat(): continue
         quota=1 if settings['energy']=='low' else settings['maxPriorities']
-        used=0
+        used_ids={b['taskId'] for b in occupied if b.get('taskId') and (b['status']=='done' or reservation(b,current))}
+        used=len(used_ids)
         end=settings['dayEnd']
         for task in tasks:
             if used>=quota: break
+            if task['id'] in used_ids:continue
             if remaining[task['id']]<=0: continue
             duration=min(remaining[task['id']],settings['focusMinutes'])
+            previous_cursor=cursor
             while cursor+duration+5<=end:
                 candidate={'start':cursor,'minutes':duration+5}
                 collisions=[x for x in occupied if overlaps(candidate,x)]
                 if collisions: cursor=max(x['start']+x['minutes']+settings['bufferMinutes'] for x in collisions);continue
                 break
-            if cursor+duration+5>end: break
+            if cursor+duration+5>end:
+                cursor=previous_cursor
+                continue
             b={'id':uid(),'date':d,'start':cursor,'minutes':duration,'title':task['title'],
                'taskId':task['id'],'kind':task['category'],'locked':False,'status':'planned',
                'reason':('A small finishing step. ' if task['category']=='project' else 'Protected time for what matters. ')+task['nextStep']}
@@ -144,12 +149,19 @@ def evidence_from(data,device):
     when=datetime.fromisoformat(data['observedAt'])
     if when.tzinfo is None:raise ValueError('Evidence requires a timezone')
     if when>datetime.now(TZ)+timedelta(minutes=5):raise ValueError('Evidence timestamp is in the future')
+    source_url=text(data.get('sourceUrl',''),1000)
+    if source_url:
+        parsed=urlsplit(source_url)
+        if parsed.scheme!='https' or not parsed.hostname or parsed.username or parsed.password:
+            raise ValueError('Source link must be HTTPS without embedded credentials')
+        source_url=parsed._replace(query='',fragment='').geturl()
     return {'id':text(data.get('id',uid()),100),'source':source,'deviceId':device,
             'summary':summary,'observedAt':when.isoformat(),'taskId':text(data.get('taskId',''),100),
             'confidence':data.get('confidence','low') if data.get('confidence') in ['low','medium','high'] else 'low',
-            'classification':'private','status':'unreviewed'}
+            'sourceUrl':source_url,'classification':'private','status':'unreviewed'}
 
 def public_state(state):
     s=copy.deepcopy(state)
+    s['backlog']=explain(state)
     for d in s['devices']:d.pop('tokenHash',None)
     return s

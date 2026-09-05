@@ -4,7 +4,21 @@ from pathlib import Path
 from datetime import datetime
 from apps.api.domain import TZ
 from .collectors import collect
-from .brains import codex_rank
+from .brains import codex_rank, codex_drafts
+
+def reserve_attempt(config_path,kind):
+    """Charge failures as well as successes; at most eight model calls per day."""
+    budget_file=Path(config_path).with_suffix('.attempts.json')
+    budget=json.loads(budget_file.read_text()) if budget_file.exists() else {}
+    day=datetime.now(TZ).date().isoformat()
+    count=budget.get('count',0) if budget.get('date')==day else 0
+    previous=budget.get('lastAttempts',{})
+    last=previous.get(kind,budget.get('lastAttempt',0) if kind=='ranking' else 0)
+    if time.time()-last<3600 or count>=8:return False
+    previous[kind]=time.time()
+    budget_file.write_text(json.dumps({'date':day,'count':count+1,'lastAttempts':previous}))
+    budget_file.chmod(0o600)
+    return True
 
 def request(url,token,data=None):
     req=urllib.request.Request(url,data=json.dumps(data).encode() if data is not None else None,
@@ -23,15 +37,18 @@ def cycle(config_path):
     if heartbeat.get('paused'):return {'paused':True}
     result=request(endpoint+'/api/ingest',token,{'evidence':collect(config)})
     if config.get('planner'):
+        # Drafts get only eligible message captures, never full activity history.
+        try:
+            context=request(endpoint+'/api/draft-context',token)
+            if context.get('evidence') and reserve_attempt(config_path,'drafts'):
+                drafts=codex_drafts(context['evidence'],config.get('codexModel'),config.get('codexExecutable','codex'))
+                accepted=request(endpoint+'/api/drafts',token,{'revision':context['revision'],'drafts':drafts})
+                result['drafts']=accepted['drafts']
+        except Exception:
+            result['draftsUnavailable']=True
         context=request(endpoint+'/api/device-context',token)
         if context.get('canPropose') and context.get('tasks'):
-            budget_file=Path(config_path).with_suffix('.attempts.json')
-            budget=json.loads(budget_file.read_text()) if budget_file.exists() else {}
-            day=datetime.now(TZ).date().isoformat()
-            count=budget.get('count',0) if budget.get('date')==day else 0
-            if time.time()-budget.get('lastAttempt',0)<3600 or count>=8:return {**result,'rankingBudgetReached':True}
-            budget_file.write_text(json.dumps({'date':day,'count':count+1,'lastAttempt':time.time()}))
-            budget_file.chmod(0o600)
+            if not reserve_attempt(config_path,'ranking'):return {**result,'rankingBudgetReached':True}
             proposal=codex_rank(context['tasks'],context['energy'],config.get('codexModel'),config.get('codexExecutable','codex'))
             request(endpoint+'/api/proposal',token,{'revision':context['revision'],**proposal})
             result['ranked']=True
@@ -45,7 +62,7 @@ def main():
         keyring.set_password('clara-device',config['deviceId'],token);print('Paired securely.');return
     # A directory lock prevents overlapping Codex runs and duplicate polling.
     lock=Path(a.config).with_suffix('.lock')
-    if lock.exists() and time.time()-lock.stat().st_mtime>300:lock.rmdir()
+    if lock.exists() and time.time()-lock.stat().st_mtime>900:lock.rmdir()
     try:lock.mkdir()
     except FileExistsError:return
     try:

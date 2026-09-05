@@ -2,6 +2,8 @@
 
 ## First usable loop
 
+Implemented since the first release: source-backed message drafts with owner acceptance, project milestone editing and delivery review, plus a work-Mac handoff guide. Browser capture is still manual and full automatic meeting research remains ahead.
+
 1. Owner completes sign-in and MFA, edits a plan and verifies persistence on a second browser.
 2. Verify the installed personal MacBook companion observes only the selected folders and Codex projects.
 3. Use one actual project completion and one real meeting as acceptance cases.

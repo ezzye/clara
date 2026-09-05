@@ -2,6 +2,9 @@ import hashlib, hmac, json, os, secrets
 from datetime import datetime, timedelta
 from .domain import *
 from .storage import Store, Conflict
+from . import suggestions
+from . import projects
+from .backlog import record_pass
 
 def digest(token): return hashlib.sha256(token.encode()).hexdigest()
 
@@ -19,6 +22,9 @@ def action(store,body):
         if t['status']=='done':
             for b in state['plan']:
                 if b.get('taskId')==t['id'] and b['status']=='planned':b['status']='skipped'
+    elif name=='taskPriority':
+        t=next(t for t in state['tasks'] if t['id']==data.get('id'))
+        t['priority']=integer(data.get('priority'),1,3)
     elif name=='addEvent':state['events'].append(event_from(data))
     elif name=='saveMeeting':
         e=next(e for e in state['events'] if e['id']==data['id'])
@@ -29,6 +35,9 @@ def action(store,body):
     elif name=='settings':
         s=state['settings']
         if 'paused' in data:s['paused']=bool(data['paused'])
+        if 'suggestFromMessages' in data:
+            if not isinstance(data['suggestFromMessages'],bool):raise ValueError('Choose on or off')
+            s['suggestFromMessages']=data['suggestFromMessages']
         if 'energy' in data:
             if data['energy'] not in ['low','steady','high']:raise ValueError('Unknown energy level')
             s['energy']=data['energy']
@@ -38,7 +47,7 @@ def action(store,body):
     elif name=='plan':
         if state['settings']['paused']:raise ValueError('Resume planning first')
         plan,warnings=propose_plan(state,valid_date(data['date']),integer(data.get('days',1),1,7),state['planner'].get('orderedTaskIds'))
-        state['plan']=plan;state['planner']={**state['planner'],'lastRun':now(),'message':' '.join(warnings) or state['planner'].get('reason') or 'A manageable plan, with breathing room. You can change any block.'}
+        state['plan']=plan;state['planner']={**state['planner'],'lastRun':now(),'lastConsidered':record_pass(state,plan,data['date'],data.get('days',1)),'message':' '.join(warnings) or state['planner'].get('reason') or 'A manageable plan, with breathing room. You can change any block.'}
     elif name=='block':
         b=next(b for b in state['plan'] if b['id']==data['id'])
         if 'locked' in data:b['locked']=bool(data['locked'])
@@ -61,12 +70,16 @@ def action(store,body):
         e=next(e for e in state['evidence'] if e['id']==data['id'])
         if data.get('status') not in ['confirmed','dismissed']:raise ValueError('Unknown evidence review')
         e['status']=data['status']
+    elif name=='decideSuggestion':suggestions.decide(state,data)
+    elif name=='commitProject':projects.commit(state,data)
+    elif name=='finishProject':projects.finish(state,data)
     elif name=='pairDevice':
         token=secrets.token_urlsafe(40);device={'id':uid(),'name':text(data['name'],80),'os':text(data.get('os',''),40),
             'tokenHash':digest(token),'planner':bool(data.get('planner',False)),'lastSeen':None,'revoked':False,'createdAt':now()}
         state['devices'].append(device);extra={'deviceToken':token,'deviceId':device['id']}
     elif name=='revokeDevice':next(d for d in state['devices'] if d['id']==data['id'])['revoked']=True
-    elif name=='purgeEvidence':state['evidence']=[]
+    elif name=='purgeEvidence':
+        state['evidence']=[];state['suggestions']=[];state['draftedEvidence']={}
     else:raise ValueError('Unknown action')
     state['audit']=(state['audit']+[{'at':now(),'action':name,'actor':'owner'}])[-100:]
     store.write(state,expected)
@@ -86,6 +99,9 @@ def ingest(store,token,body):
             if e['id'] not in known:state['evidence'].append(e);known.add(e['id']);accepted+=1
         cutoff=(datetime.now(TZ)-timedelta(days=30)).isoformat()
         state['evidence']=[e for e in state['evidence'] if e['observedAt']>=cutoff][-300:]
+        live_ids={e['id'] for e in state['evidence']}
+        state['suggestions']=[s for s in state.get('suggestions',[]) if s['evidenceId'] in live_ids]
+        state['draftedEvidence']={k:v for k,v in state.get('draftedEvidence',{}).items() if k in live_ids}
         device['lastSeen']=now()
         try:store.write(state,old);return {'accepted':accepted,'paused':False}
         except Conflict:
@@ -93,7 +109,7 @@ def ingest(store,token,body):
 
 def dispatch(store,path,method,body,owner=False,device_token=''):
     if path=='/api/ingest' and method=='POST':return ingest(store,device_token,body)
-    if path in ['/api/device-context','/api/proposal']:
+    if path in ['/api/device-context','/api/proposal','/api/draft-context','/api/drafts']:
         return device_planning(store,device_token,body,method,path)
     if not owner:raise PermissionError('Sign in to your private space')
     if path=='/api/state' and method=='GET':return public_state(store.read())
@@ -106,6 +122,16 @@ def device_planning(store,token,body,method,path):
     device=next((d for d in state['devices'] if not d['revoked'] and d.get('planner') and hmac.compare_digest(d['tokenHash'],digest(token))),None)
     if not device:raise PermissionError('This laptop has no planning permission')
     if state['settings']['paused']:raise PermissionError('Planning is paused')
+    if path in ['/api/draft-context','/api/drafts']:
+        evidence=suggestions.candidates(state)
+        if path=='/api/draft-context' and method=='GET':
+            return {'revision':state['revision'],'evidence':evidence}
+        if path!='/api/drafts' or method!='POST':raise ValueError('Invalid draft request')
+        if body.get('revision')!=state['revision']:raise Conflict('Source context changed; drafts discarded')
+        if not evidence:raise ValueError('No sources ready for drafting')
+        count=suggestions.save_drafts(state,body.get('drafts'),evidence)
+        store.write(state,state['revision'])
+        return {'accepted':True,'drafts':count}
     last=state['planner'].get('rankedAt')
     recent=last and (datetime.now(TZ)-datetime.fromisoformat(last)).total_seconds()<3600
     daily=state['planner'].get('rankingsToday',{})
@@ -122,6 +148,6 @@ def device_planning(store,token,body,method,path):
     if not isinstance(ids,list) or any(not isinstance(i,str) or i not in known for i in ids) or len(ids)!=len(set(ids)):raise ValueError('Invalid task ranking')
     reason=text(body.get('reason',''),500)
     if SECRET_PATTERN.search(reason):raise ValueError('Explanation contains excluded material')
-    state['planner']={**state['planner'],'mode':'codex','orderedTaskIds':ids,'reason':reason,'rankedAt':now(),'message':reason,'rankingsToday':{'date':day,'count':spent+1}}
+    state['planner']={**state['planner'],'mode':'codex','orderedTaskIds':ids,'modelConsideredIds':[t['id'] for t in tasks],'reason':reason,'rankedAt':now(),'message':reason,'rankingsToday':{'date':day,'count':spent+1}}
     store.write(state,state['revision'])
     return {'accepted':True,'note':'Order saved for the next plan; protected time and task completion were not changed.'}

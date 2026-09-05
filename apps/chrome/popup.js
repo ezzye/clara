@@ -1,5 +1,6 @@
 let source = "";
 let sourceType = "chrome";
+let sourceUrl = "";
 const status = document.getElementById("status");
 document.getElementById("settings").onclick = () =>
   chrome.runtime.openOptionsPage();
@@ -39,6 +40,7 @@ document.getElementById("preview").onclick = async () => {
         "Authentication material detected. Capture a different page.",
       );
     source = url.hostname;
+    sourceUrl = url.origin + url.pathname;
     sourceType = isWhatsApp ? "whatsapp" : "chrome";
     document.getElementById("brief").value = (
       data.title +
@@ -58,6 +60,7 @@ document.getElementById("send").onclick = async () => {
   const reply = await chrome.runtime.sendMessage({
     type: "sendBrief",
     source: sourceType,
+    sourceUrl,
     summary: "Selected source (" + source + "): " + summary,
   });
   status.textContent = reply.ok ? "Saved as unreviewed evidence." : reply.error;

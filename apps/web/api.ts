@@ -40,6 +40,14 @@ export type Meeting = {
 };
 export type State = {
   revision: number;
+  suggestions?: Suggestion[];
+  backlog?: BacklogItem[];
+  sourceConnections?: {
+    label: string;
+    url: string;
+    status: string;
+    note: string;
+  }[];
   tasks: Task[];
   plan: Block[];
   events: Meeting[];
@@ -49,6 +57,11 @@ export type State = {
     outcome: string;
     nextStep: string;
     source: string;
+    sourceUrl?: string;
+    doneWhen?: string;
+    activeTaskId?: string;
+    stage?: string;
+    proof?: string;
   }[];
   goals: {
     id: string;
@@ -75,6 +88,7 @@ export type State = {
   }[];
   settings: {
     paused: boolean;
+    suggestFromMessages?: boolean;
     energy: string;
     focusMinutes: number;
     dayStart: number;
@@ -82,7 +96,48 @@ export type State = {
     bufferMinutes: number;
     maxPriorities: number;
   };
-  planner: { mode: string; message: string; lastRun: string | null };
+  planner: {
+    mode: string;
+    message: string;
+    lastRun: string | null;
+    lastConsidered?: {
+      at: string;
+      date: string;
+      days: number;
+      openCount: number;
+      tasks: { id: string; reason: string }[];
+    };
+  };
+};
+export type BacklogItem = {
+  id: string;
+  score: number;
+  factors: { label: string; points: number }[];
+  coverage: string;
+  reservedMinutes: number;
+  remainingMinutes: number;
+  reservations: { date: string; start: number; minutes: number }[];
+  lastDecision: string;
+  modelConsidered: boolean | null;
+  consideredAt: string | null;
+};
+export type Suggestion = {
+  id: string;
+  evidenceId: string;
+  kind: "task" | "appointment";
+  title: string;
+  quote: string;
+  reason: string;
+  nextStep: string;
+  doneWhen: string;
+  date: string;
+  start: number;
+  minutes: number;
+  source: string;
+  sourceUrl?: string;
+  observedAt: string;
+  createdAt: string;
+  status: "pending" | "accepted" | "dismissed";
 };
 export type Config = { mode: string; clientId?: string; domain?: string };
 export let config: Config = { mode: "local" };

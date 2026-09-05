@@ -44,6 +44,12 @@ The banks describe this route at [smile Open Banking](https://www.smile.co.uk/di
 
 ## Agent providers
 
+The planning laptop can also turn eligible Gmail, Chrome and WhatsApp captures into drafts. It sends at most three bounded summaries per run to Codex, never the NHS source or the complete activity history. Drafts include an exact passage from the captured summary, source time and source URL where available. Dates and appointment times must be explicit in the capture; ambiguous references should become a clarification task. Estimated effort and appointment duration are shown for owner review.
+
+Drafts appear in Review and require an owner decision before creating a task or appointment. Accepting twice is idempotent. Changed, dismissed or removed sources cannot be accepted from stale drafts. Removing evidence also removes its derivative drafts; accepted tasks and events remain deliberate plan entries. Disable message drafting in Review, pause the companion, or revoke the laptop to stop new work.
+
+Current and legacy Jira identities include the full site origin. Browser captures strip URL query parameters and fragments before storing provenance, so tracking or credential parameters are not retained. Old Jira is retired in this setup; do not reconnect it as an active planning source.
+
 The local Codex adapter follows the [official Codex SDK and automation guidance](https://learn.chatgpt.com/docs/codex-sdk), using the installed CLI interface verified during development. The Python implementation uses the CLI's structured response support. It preserves the installed model default unless configured. A production cloud Codex worker needs a separate deployment and authentication decision; copying a laptop's entire credentials folder into AWS is not part of this setup.
 
 DeepSeek is an optional adapter, accepts public-labelled inputs only and needs a server-side `DEEPSEEK_API_KEY`. No private source has been submitted to DeepSeek in this release. The adapter is not scheduled until a bounded job and budget are configured.
