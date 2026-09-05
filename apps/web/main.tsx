@@ -38,13 +38,13 @@ import {
   type State,
   type Task,
   type Block,
-  type Meeting,
 } from "./api";
 import "./style.css";
 import { LifeView } from "./LifeView";
 import { SuggestionInbox } from "./SuggestionInbox";
 import { ProjectFinish } from "./ProjectFinish";
 import { BacklogView } from "./BacklogView";
+import { MeetingPrep } from "./MeetingPrep";
 const today = () =>
   new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/London",
@@ -360,6 +360,19 @@ function App() {
           </div>
         </header>
         <main className="content">
+          {config.mode === "local" && (
+            <div className="notice">
+              <span>
+                This is the local development copy. Its edits do not sync with
+                your shared plan.
+              </span>
+              {config.sharedSiteUrl && (
+                <a className="small-button" href={config.sharedSiteUrl}>
+                  Open my shared Clara plan <ArrowUpRight size={16} />
+                </a>
+              )}
+            </div>
+          )}
           {error && (
             <div className="notice" role="alert">
               {error}
@@ -570,7 +583,13 @@ function App() {
                   <p className="eyebrow">BEFORE YOU NEED IT</p>
                   <h2>Prepare, then participate.</h2>
                   {state.events
-                    .filter((e) => e.date >= today())
+                    .filter(
+                      (e) => e.date >= today() && e.status !== "cancelled",
+                    )
+                    .sort(
+                      (a, b) =>
+                        a.date.localeCompare(b.date) || a.start - b.start,
+                    )
                     .slice(0, 2)
                     .map((e) => (
                       <div className="meeting-preview" key={e.id}>
@@ -789,8 +808,10 @@ function App() {
                             }{" "}
                             outcomes ·{" "}
                             {
-                              state.events.filter((e) =>
-                                e.date.startsWith(d.slice(0, 7)),
+                              state.events.filter(
+                                (e) =>
+                                  e.status !== "cancelled" &&
+                                  e.date.startsWith(d.slice(0, 7)),
                               ).length
                             }{" "}
                             appointments
@@ -994,29 +1015,12 @@ function App() {
                   <Plus size={16} /> Add appointment
                 </button>
               </div>
-              {state.events.length === 0 && (
-                <div className="card empty">
-                  <BookOpen />
-                  <h2>No meetings imported yet.</h2>
-                  <p>
-                    Connect your work calendar on the work MacBook, or add the
-                    next meeting.
-                  </p>
-                </div>
-              )}
-              <div className="goals-grid">
-                {state.events
-                  .filter((e) => e.date >= date)
-                  .map((e) => (
-                    <MeetingCard
-                      key={e.id}
-                      meeting={e}
-                      onSave={(notes) =>
-                        act("saveMeeting", { id: e.id, notes })
-                      }
-                    />
-                  ))}
-              </div>
+              <MeetingPrep
+                state={state}
+                act={act}
+                busy={busy}
+                today={today()}
+              />
             </>
           )}
           {view === "Review" && (
@@ -1748,54 +1752,6 @@ function App() {
     </div>
   );
 }
-function MeetingCard({
-  meeting: e,
-  onSave,
-}: {
-  meeting: Meeting;
-  onSave: (notes: string) => unknown;
-}) {
-  const [notes, setNotes] = useState(e.notes);
-  return (
-    <form
-      className="card meeting-card"
-      onSubmit={(ev) => {
-        ev.preventDefault();
-        onSave(notes);
-      }}
-    >
-      <span className="tag">
-        {e.date} · {time(e.start)} · {e.minutes} min
-      </span>
-      <h2>{e.title}</h2>
-      <p className="muted">
-        {e.prepMinutes} minutes reserved for preparation when planning.
-      </p>
-      <ol className="prep-checklist">
-        <li>What is this meeting for?</li>
-        <li>What do I need to understand beforehand?</li>
-        <li>What decision or contribution is needed from me?</li>
-        <li>Which questions should I bring?</li>
-        <li>What should I capture before leaving?</li>
-      </ol>
-      <label>
-        Your briefing & questions
-        <textarea
-          rows={5}
-          value={notes}
-          maxLength={2000}
-          onChange={(ev) => setNotes(ev.target.value)}
-          placeholder="Purpose, links to read, what is still unclear…"
-        />
-      </label>
-      <small className="source">Source: {e.source}</small>
-      <button className="small-button">
-        <Check size={15} />
-        {e.confirmed ? "Update briefing" : "Save briefing & confirm details"}
-      </button>
-    </form>
-  );
-}
 function MonthGrid({
   date,
   state,
@@ -1827,7 +1783,7 @@ function MonthGrid({
         >
           <strong>{Number(d.slice(-2))}</strong>
           {state.events
-            .filter((e) => e.date === d)
+            .filter((e) => e.date === d && e.status !== "cancelled")
             .slice(0, 2)
             .map((e) => (
               <span key={e.id}>

@@ -11,6 +11,15 @@ def main():
     store=Store();bootstrap=secrets.token_urlsafe(32);session=secrets.token_urlsafe(32)
     port=int(os.getenv('CLARA_PORT','8766'));allowed={f'http://127.0.0.1:{port}','http://127.0.0.1:5174'}
     dist=Path(__file__).resolve().parents[2]/'dist'
+    shared_site=''
+    deployment=store.path/'deployment.json'
+    if deployment.is_file():
+        try:
+            candidate=json.loads(deployment.read_text()).get('SiteUrl','')
+            parsed=urlsplit(candidate)
+            if parsed.scheme=='https' and parsed.hostname and not parsed.username and not parsed.password:
+                shared_site=parsed._replace(query='',fragment='').geturl()
+        except (ValueError,OSError):pass
     class Handler(BaseHTTPRequestHandler):
         def log_message(self,*args):pass
         def send(self,status,data,headers=None):
@@ -28,7 +37,7 @@ def main():
                 size=int(self.headers.get('Content-Length','0'))
                 if size>128000:raise ValueError('Request too large')
                 body=json.loads(self.rfile.read(size) or b'{}')
-                if path=='/config':return self.send(200,{'mode':'local'})
+                if path=='/config':return self.send(200,{'mode':'local','sharedSiteUrl':shared_site})
                 if path=='/api/bootstrap' and method=='POST':
                     if not bootstrap or not hmac.compare_digest(str(body.get('token','')),bootstrap):raise PermissionError('Launch link expired')
                     bootstrap=''

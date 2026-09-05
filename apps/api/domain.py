@@ -88,25 +88,9 @@ def propose_plan(state, day, days=1, ranked_ids=None, current=None):
     for b in keep:
         if b.get('taskId') in remaining and reservation(b,current):
             remaining[b['taskId']]=max(0,remaining[b['taskId']]-b['minutes'])
-    warnings=[]
+    warnings=reserve_appointments(state,keep,dates,current)
     for d in dates:
-        occupied=[b for b in keep if b['date']==d]
-        events=[e for e in state['events'] if e['date']==d]
-        for event in sorted(events,key=lambda e:e['start']):
-            existing=next((b for b in occupied if b.get('eventId')==event['id'] and b['kind']=='event'),None)
-            b={'id':uid(),'eventId':event['id'],'date':d,'start':event['start'],
-               'minutes':event['minutes'],'title':event['title'],'kind':'event','locked':True,
-               'status':'planned','source':event['source'],'reason':'Protected appointment. Attendance is not yet confirmed.'}
-            if not existing:
-                if any(overlaps(b,x) for x in occupied): warnings.append('An appointment overlaps a protected block on '+d+'. Please review it.')
-                keep.append(b);occupied.append(b)
-            if event['prepMinutes']:
-                prep={'id':uid(),'eventId':event['id'],'date':d,'start':max(0,event['start']-event['prepMinutes']-10),
-                      'minutes':event['prepMinutes'],'title':'Prepare: '+event['title'],'kind':'prep','locked':False,
-                      'status':'planned','reason':'Review the purpose, relevant material, decisions and questions before joining.'}
-                if prep['start']+prep['minutes']<=event['start'] and not any(overlaps(prep,x) for x in occupied):
-                    keep.append(prep);occupied.append(prep)
-                else: warnings.append('Preparation needs another slot for '+event['title'])
+        occupied=[b for b in keep if b['date']==d and b['status']!='skipped']
         cursor=settings['dayStart']
         if d==current.date().isoformat(): cursor=max(cursor,((current.hour*60+current.minute+4)//5)*5)
         if d<current.date().isoformat(): continue
@@ -139,6 +123,56 @@ def propose_plan(state, day, days=1, ranked_ids=None, current=None):
             cursor+=settings['bufferMinutes']
     return sorted(keep,key=lambda b:(b['date'],b['start'])), warnings
 
+def reserve_appointments(state,keep,dates,current):
+    """Fill calendar and prep gaps without moving the existing task plan."""
+    settings=state['settings']
+    warnings=[]
+    # Reserve every appointment before looking for preparation. This prevents
+    # an earlier event's prep slot from stealing a later event's protected time.
+    events=[e for e in state['events'] if e['date'] in dates and e.get('status')!='cancelled']
+    for event in sorted(events,key=lambda e:(e['date'],e['start'])):
+        existing=next((b for b in keep if b.get('eventId')==event['id'] and b['kind']=='event'),None)
+        b={'id':uid(),'eventId':event['id'],'date':event['date'],'start':event['start'],
+           'minutes':event['minutes'],'title':event['title'],'kind':'event','locked':True,
+           'status':'planned','source':event['source'],'reason':'Protected appointment. Attendance is not yet confirmed.'}
+        if not existing:
+            if any(x['date']==b['date'] and overlaps(b,x) for x in keep):
+                warnings.append('An appointment overlaps a protected block on '+b['date']+'. Please review it.')
+            keep.append(b)
+    for event in sorted(events,key=lambda e:(e['date'],e['start'])):
+        if not event['prepMinutes'] or event.get('prepared'):continue
+        if (event['date'],event['start']) <= (current.date().isoformat(),current.hour*60+current.minute):continue
+        existing=[b for b in keep if b.get('eventId')==event['id'] and b['kind']=='prep']
+        if existing:
+            # Completed or skipped preparation requires owner review, not a
+            # duplicate block. Protected prep is never silently moved.
+            if not any(b['status'] in ('planned','active') and
+                       (b['date'],b['start']+b['minutes']) > (current.date().isoformat(),current.hour*60+current.minute)
+                       for b in existing):
+                warnings.append('Review preparation readiness for '+event['title'])
+            continue
+        placed=False
+        # Prefer immediately before the meeting, then earlier gaps and previous
+        # days in the requested planning window. Never schedule prep in the past.
+        for d in reversed([d for d in dates if current.date().isoformat()<=d<=event['date']]):
+            lower=settings['dayStart']
+            if d==current.date().isoformat():lower=max(lower,((current.hour*60+current.minute+4)//5)*5)
+            upper=min(settings['dayEnd'],event['start']-10) if d==event['date'] else settings['dayEnd']
+            cursor=upper-event['prepMinutes']
+            occupied=[b for b in keep if b['date']==d and b['status']!='skipped']
+            while cursor>=lower:
+                prep={'id':uid(),'eventId':event['id'],'date':d,'start':cursor,
+                      'minutes':event['prepMinutes'],'title':'Prepare: '+event['title'],'kind':'prep','locked':False,
+                      'status':'planned','reason':'Read the relevant material and prepare your contribution before the appointment.'}
+                collisions=[x for x in occupied if overlaps(prep,x)]
+                if collisions:
+                    cursor=min(x['start'] for x in collisions)-settings['bufferMinutes']-event['prepMinutes']
+                    continue
+                keep.append(prep);placed=True;break
+            if placed:break
+        if not placed:warnings.append('Preparation needs another slot for '+event['title'])
+    return warnings
+
 SECRET_PATTERN=re.compile(r'one.time|passcode|password|verification code|secure key|otp\b|api.?key|secret|bearer|sk-[a-zA-Z0-9]',re.I)
 
 def evidence_from(data,device):
@@ -163,5 +197,7 @@ def evidence_from(data,device):
 def public_state(state):
     s=copy.deepcopy(state)
     s['backlog']=explain(state)
+    from .meetings import preparation
+    for event in s['events']:event['preparation']=preparation(event,state['plan'])
     for d in s['devices']:d.pop('tokenHash',None)
     return s

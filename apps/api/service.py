@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from .domain import *
 from .storage import Store, Conflict
 from . import suggestions
-from . import projects
+from . import projects, meetings
 from .backlog import record_pass
 
 def digest(token): return hashlib.sha256(token.encode()).hexdigest()
@@ -25,10 +25,11 @@ def action(store,body):
     elif name=='taskPriority':
         t=next(t for t in state['tasks'] if t['id']==data.get('id'))
         t['priority']=integer(data.get('priority'),1,3)
-    elif name=='addEvent':state['events'].append(event_from(data))
-    elif name=='saveMeeting':
-        e=next(e for e in state['events'] if e['id']==data['id'])
-        e['notes']=text(data.get('notes',''),2000);e['confirmed']=True
+    elif name=='addEvent':
+        event=event_from(data);state['events'].append(event);meetings.protect(state,event)
+    elif name=='saveMeeting':meetings.review(state,data)
+    elif name=='editEvent':meetings.edit(state,data)
+    elif name=='eventStatus':meetings.set_status(state,data)
     elif name=='addGoal':state['goals'].append(goal_from(data))
     elif name=='goalStatus':
         g=next(g for g in state['goals'] if g['id']==data['id']);g['status']='done' if data.get('done') else 'open'

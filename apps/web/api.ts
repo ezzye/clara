@@ -37,6 +37,22 @@ export type Meeting = {
   notes: string;
   source: string;
   confirmed: boolean;
+  prepared?: boolean;
+  status?: "scheduled" | "cancelled";
+  preparation?: {
+    status:
+      | "review"
+      | "ready"
+      | "reserved"
+      | "needs-time"
+      | "none"
+      | "cancelled"
+      | "past";
+    message: string;
+    date?: string;
+    start?: number;
+    minutes?: number;
+  };
 };
 export type State = {
   revision: number;
@@ -139,7 +155,12 @@ export type Suggestion = {
   createdAt: string;
   status: "pending" | "accepted" | "dismissed";
 };
-export type Config = { mode: string; clientId?: string; domain?: string };
+export type Config = {
+  mode: string;
+  clientId?: string;
+  domain?: string;
+  sharedSiteUrl?: string;
+};
 export let config: Config = { mode: "local" };
 export async function api(path: string, body?: unknown) {
   const token = sessionStorage.getItem("clara-access");

@@ -1512,3 +1512,20 @@ label,
   background: white;
   font: inherit;
 }
+
+.meeting-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0;
+}
+.meeting-check input {
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  margin: 0;
+}
+.meeting-card > small {
+  display: block;
+  margin: 12px 0;
+}

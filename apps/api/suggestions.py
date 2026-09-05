@@ -117,4 +117,6 @@ def decide(state, data):
         target = event_from({**draft, 'prepMinutes': 20, 'source': provenance,
                              'notes': draft['nextStep'] + '\n' + draft['doneWhen'], 'confirmed': True})
         state['events'].append(target)
+        from .meetings import protect
+        protect(state,target)
     suggestion.update({**draft, 'status': 'accepted', 'targetId': target['id'], 'decidedAt': now()})

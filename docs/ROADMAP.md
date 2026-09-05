@@ -2,7 +2,7 @@
 
 ## First usable loop
 
-Implemented since the first release: source-backed message drafts with owner acceptance, project milestone editing and delivery review, plus a work-Mac handoff guide. Browser capture is still manual and full automatic meeting research remains ahead.
+Implemented since the first release: source-backed message drafts with owner acceptance, project milestone editing and delivery review, plus a work-Mac handoff guide. Preparation now searches earlier gaps and preceding days, runs quietly for upcoming appointments, and distinguishes time reserved from owner-confirmed readiness. Appointment edits and removals release old reservations while preserving activity history. Browser capture is still manual and full automatic meeting research remains ahead.
 
 1. Owner completes sign-in and MFA, edits a plan and verifies persistence on a second browser.
 2. Verify the installed personal MacBook companion observes only the selected folders and Codex projects.
